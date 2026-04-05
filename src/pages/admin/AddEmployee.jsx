@@ -134,7 +134,8 @@ const Step1 = ({ data, setData, errors }) => (
       <Input label="Employee ID" required placeholder="Auto-generated" value={data.employeeId} onChange={e => setData({...data, employeeId: e.target.value})} hint="Auto-generated. You may override." error={errors.employeeId} />
       <Input label="Joining Date" required type="date" value={data.joiningDate} onChange={e => setData({...data, joiningDate: e.target.value})} error={errors.joiningDate} />
       <Input label="Mobile Number" required type="tel" placeholder="+91 98765 43210" value={data.mobile} onChange={e => setData({...data, mobile: e.target.value})} error={errors.mobile} />
-      <Input label="Email Address" required type="email" placeholder="ravi@worknest.com" value={data.email} onChange={e => setData({...data, email: e.target.value})} error={errors.email} className="md:col-span-2" />
+      <Input label="Email Address" required type="email" placeholder="ravi@worknest.com" value={data.email} onChange={e => setData({...data, email: e.target.value})} error={errors.email} />
+      <Input label="Set Login Password" required type="password" placeholder="••••••••" value={data.password} onChange={e => setData({...data, password: e.target.value})} error={errors.password} />
       <Select label="Gender" required value={data.gender} onChange={e => setData({...data, gender: e.target.value})} error={errors.gender}>
         <option value="">Select gender...</option>
         <option>Male</option>
@@ -640,16 +641,20 @@ const validate = (step, data) => {
 };
 
 // ─── MAIN PAGE ────────────────────────────────────────────────────────────────
+import { useAuth } from '../../context/AuthContext';
+
 const genId = () => 'EMP' + String(Math.floor(1000 + Math.random() * 9000));
 const INITIAL_EMP_ID = genId();
 
 const AddEmployee = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [step, setStep] = useState(1);
   const [errors, setErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [formData, setFormData] = useState({
-    basic:     { firstName:'', middleName:'', lastName:'', employeeId: INITIAL_EMP_ID, joiningDate:'', mobile:'', email:'', gender:'', location:'', designation:'', department:'' },
+    basic:     { firstName:'', middleName:'', lastName:'', employeeId: INITIAL_EMP_ID, joiningDate:'', mobile:'', email:'', password: '', gender:'', location:'', designation:'', department:'' },
     statutory: { profTax:false, pfEnabled:false, pfEmployee:12, pfEmployer:12, pfPension:8.33, tds:false, otherDeductions:[] },
     personal:  { fatherName:'', address:'', aadhaar:'', pan:'', dob:'', differentlyAbled:false },
     bank:      { bankName:'', accountHolder:'', accountNumber:'', ifsc:'', accountType:'' },
@@ -668,9 +673,32 @@ const AddEmployee = () => {
 
   const prev = () => { setErrors({}); setStep(s => Math.max(s - 1, 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); };
 
-  const submit = () => {
-    alert(`✅ Employee "${formData.basic.firstName} ${formData.basic.lastName}" (${formData.basic.employeeId}) has been created successfully!`);
-    navigate('/app/employees');
+  const submit = async () => {
+    setIsSubmitting(true);
+    try {
+      const response = await fetch("http://localhost:5000/api/employees", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${user.token}`
+        },
+        body: JSON.stringify(formData),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        alert(`✅ Employee "${formData.basic.firstName} ${formData.basic.lastName}" (${formData.basic.employeeId}) has been created successfully!`);
+        navigate('/app/employees');
+      } else {
+        alert(`❌ Error: ${data.message || 'Failed to create employee'}`);
+      }
+    } catch (err) {
+      console.error(err);
+      alert("❌ Server error. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -720,8 +748,13 @@ const AddEmployee = () => {
                   Next <ChevronRight size={16} />
                 </button>
               ) : (
-                <button onClick={submit} className="flex items-center gap-2 px-8 py-3 bg-teal-500 text-white rounded-2xl text-sm font-bold uppercase tracking-widest shadow-lg shadow-teal-500/30 hover:bg-teal-400 transition-all">
-                  <CheckCircle2 size={16} /> Confirm & Create
+                <button
+                  onClick={submit}
+                  disabled={isSubmitting}
+                  className={`flex items-center gap-2 px-8 py-3 bg-teal-500 text-white rounded-2xl text-sm font-bold uppercase tracking-widest shadow-lg shadow-teal-500/30 hover:bg-teal-400 transition-all ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  <CheckCircle2 size={16} />
+                  {isSubmitting ? 'Creating...' : 'Confirm & Create'}
                 </button>
               )}
             </div>

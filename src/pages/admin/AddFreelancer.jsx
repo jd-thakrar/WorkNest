@@ -146,7 +146,8 @@ const Step1 = ({ data, setData, errors }) => (
       <Input label="Freelancer ID" required placeholder="Auto-generated" value={data.freelancerId} onChange={e => setData({ ...data, freelancerId: e.target.value })} hint="Auto-generated. You may override." error={errors.freelancerId} />
       <Input label="Start Date" required type="date" value={data.startDate} onChange={e => setData({ ...data, startDate: e.target.value })} error={errors.startDate} />
       <Input label="Mobile Number" required type="tel" placeholder="+91 98765 43210" value={data.mobile} onChange={e => setData({ ...data, mobile: e.target.value })} error={errors.mobile} />
-      <Input label="Email Address" required type="email" placeholder="rohan@studio.io" value={data.email} onChange={e => setData({ ...data, email: e.target.value })} error={errors.email} className="md:col-span-2" />
+      <Input label="Email Address" required type="email" placeholder="rohan@studio.io" value={data.email} onChange={e => setData({ ...data, email: e.target.value })} error={errors.email} />
+      <Input label="Set Login Password" required type="password" placeholder="••••••••" value={data.password} onChange={e => setData({ ...data, password: e.target.value })} error={errors.password} />
       <Select label="Gender" required value={data.gender} onChange={e => setData({ ...data, gender: e.target.value })} error={errors.gender}>
         <option value="">Select gender...</option>
         <option>Male</option>
@@ -551,16 +552,20 @@ const validate = (step, data) => {
 };
 
 // ─── MAIN PAGE ────────────────────────────────────────────────────────────────
+import { useAuth } from '../../context/AuthContext';
+
 const genFLId = () => 'FRL' + String(Math.floor(1000 + Math.random() * 9000));
 const INITIAL_FL_ID = genFLId();
 
 const AddFreelancer = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [step, setStep] = useState(1);
   const [errors, setErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [formData, setFormData] = useState({
-    basic:    { firstName: '', middleName: '', lastName: '', freelancerId: INITIAL_FL_ID, startDate: '', mobile: '', email: '', gender: '', location: '', designation: '', department: '' },
+    basic:    { firstName: '', middleName: '', lastName: '', freelancerId: INITIAL_FL_ID, startDate: '', mobile: '', email: '', password: '', gender: '', location: '', designation: '', department: '', type: 'Freelancer' },
     tax:      { tds: false, tdsPercent: '', gstEnabled: false, gstNumber: '', otherDeductions: [] },
     personal: { fatherName: '', address: '', aadhaar: '', pan: '', dob: '', differentlyAbled: false },
     bank:     { bankName: '', accountHolder: '', accountNumber: '', ifsc: '', accountType: '' },
@@ -579,9 +584,32 @@ const AddFreelancer = () => {
 
   const prev = () => { setErrors({}); setStep(s => Math.max(s - 1, 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); };
 
-  const submit = () => {
-    alert(`✅ Freelancer "${formData.basic.firstName} ${formData.basic.lastName}" (${formData.basic.freelancerId}) has been onboarded successfully!`);
-    navigate('/app/employees');
+  const submit = async () => {
+    setIsSubmitting(true);
+    try {
+      const response = await fetch("http://localhost:5000/api/employees", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${user.token}`
+        },
+        body: JSON.stringify(formData),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        alert(`✅ Freelancer "${formData.basic.firstName} ${formData.basic.lastName}" has been onboarded successfully!`);
+        navigate('/app/employees');
+      } else {
+        alert(`❌ Error: ${data.message || 'Failed to onboard freelancer'}`);
+      }
+    } catch (err) {
+      console.error(err);
+      alert("❌ Server error. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -641,8 +669,13 @@ const AddFreelancer = () => {
                   Next <ChevronRight size={16} />
                 </button>
               ) : (
-                <button onClick={submit} className="flex items-center gap-2 px-8 py-3 bg-teal-600 text-white rounded-2xl text-sm font-bold uppercase tracking-widest shadow-lg shadow-teal-500/30 hover:bg-teal-500 transition-all">
-                  <CheckCircle2 size={16} /> Confirm & Create
+                <button
+                  onClick={submit}
+                  disabled={isSubmitting}
+                  className={`flex items-center gap-2 px-8 py-3 bg-teal-600 text-white rounded-2xl text-sm font-bold uppercase tracking-widest shadow-lg shadow-teal-500/30 hover:bg-teal-500 transition-all ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  <CheckCircle2 size={16} />
+                  {isSubmitting ? 'Onboarding...' : 'Confirm & Create'}
                 </button>
               )}
             </div>

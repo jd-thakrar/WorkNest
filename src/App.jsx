@@ -43,11 +43,13 @@ import EmployeeNotifications from "./pages/employee/Notifications";
 
 import { ThemeProvider } from "./context/ThemeContext";
 import { GlobalProvider } from "./context/GlobalProvider";
+import { AuthProvider } from "./context/AuthContext";
 
 function App() {
   return (
-    <ThemeProvider>
-      <GlobalProvider>
+    <AuthProvider>
+      <ThemeProvider>
+        <GlobalProvider>
         <Router>
           <Routes>
             {/* Marketing/Client Routes (Wrapped in Navbar/Footer) */}
@@ -138,8 +140,9 @@ function App() {
             </Route>
           </Routes>
         </Router>
-      </GlobalProvider>
-    </ThemeProvider>
+        </GlobalProvider>
+      </ThemeProvider>
+    </AuthProvider>
   );
 }
 

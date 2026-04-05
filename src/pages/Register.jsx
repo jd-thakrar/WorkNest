@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
-import { motion } from "framer-motion";
 import {
   Mail,
   Lock,
@@ -13,6 +12,9 @@ import {
   Phone,
 } from "lucide-react";
 
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
+
 const Register = () => {
   const [formData, setFormData] = useState({
     name: "",
@@ -24,12 +26,36 @@ const Register = () => {
     password: "",
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState("");
+  const navigate = useNavigate();
+  const { login } = useAuth();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
-    // Simulate API call
-    setTimeout(() => setIsSubmitting(false), 1500);
+    setError("");
+
+    try {
+      const response = await fetch("http://localhost:5000/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        login(data);
+        navigate("/app/dashboard"); // Redirect to admin dash by default or based on role
+      } else {
+        setError(data.message || "Registration failed");
+      }
+    } catch (err) {
+      console.error(err);
+      setError("Server error. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -57,6 +83,11 @@ const Register = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-12 items-start">
           <div className="bg-white py-10 px-8 rounded-[32px] border border-gray-200 shadow-[0_20px_50px_rgba(0,0,0,0.06)]">
+            {error && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-600 text-xs font-semibold rounded-xl text-center">
+                {error}
+              </div>
+            )}
             <form className="space-y-6" onSubmit={handleSubmit}>
               {/* Row 1: Name & Company */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">

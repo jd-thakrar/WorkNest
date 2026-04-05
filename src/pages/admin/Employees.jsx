@@ -1,33 +1,64 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AdminLayout from '../../layouts/AdminLayout';
 import { 
-  Plus, 
   Search, 
   Filter, 
-  Download, 
   MoreVertical, 
   Mail, 
-  Phone, 
-  MapPin,
-  ExternalLink,
   ChevronRight,
   UserPlus
 } from 'lucide-react';
-import { useGlobal } from '../../context/GlobalContext.jsx';
+import { useAuth } from '../../context/AuthContext';
 
 const Employees = () => {
-  const { employees } = useGlobal();
+  const { user } = useAuth();
+  const [employees, setEmployees] = useState([]);
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeType, setActiveType] = useState('Full-time');
-  
-  const allEmployees = employees;
 
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [formData, setFormData] = useState({ name: '', role: '', dept: '', email: '', rate: '' });
+  useEffect(() => {
+    const fetchEmployees = async () => {
+      try {
+        const response = await fetch("http://localhost:5000/api/employees", {
+          headers: {
+            "Authorization": `Bearer ${user.token}`
+          }
+        });
+        const data = await response.json();
+        if (response.ok) {
+          setEmployees(data);
+        }
+      } catch (err) {
+        console.error("Failed to fetch employees:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  const filteredEmployees = allEmployees.filter(emp => emp.type === activeType);
+    if (user) fetchEmployees();
+  }, [user]);
+
+  // Transform data for the table
+  const allEmployees = employees.map(emp => ({
+    id: emp._id,
+    name: `${emp.firstName} ${emp.lastName}`,
+    email: emp.email,
+    dept: emp.department,
+    role: emp.designation,
+    type: emp.type, // Map exactly from the database
+    status: 'Active',
+    avatar: `https://ui-avatars.com/api/?name=${emp.firstName}+${emp.lastName}&background=random`
+  }));
+
+  const filteredEmployees = allEmployees.filter(emp => 
+    emp.type === activeType && (
+      emp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      emp.email.toLowerCase().includes(searchQuery.toLowerCase())
+    )
+  );
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -39,6 +70,19 @@ const Employees = () => {
   };
 
   const handleAction = (msg) => alert(`${msg} executed!`);
+
+  if (loading) {
+    return (
+      <AdminLayout title="Employees">
+        <div className="flex h-[60vh] items-center justify-center">
+          <div className="text-center">
+            <div className="w-12 h-12 border-4 border-teal-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+            <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px]">Accessing Personnel Records...</p>
+          </div>
+        </div>
+      </AdminLayout>
+    );
+  }
 
   return (
     <AdminLayout title="Employees">
@@ -73,10 +117,6 @@ const Employees = () => {
           </div>
           
           <div className="flex items-center gap-3">
-            <button onClick={() => handleAction('Filters Overlay')} className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-100 rounded-2xl text-sm font-bold text-gray-500 hover:bg-gray-50 transition-all shadow-sm">
-              <Filter size={16} />
-              Filters
-            </button>
             <button
               onClick={() => navigate(activeType === 'Full-time' ? '/app/employees/add' : '/app/employees/add-freelancer')}
               className="btn-primary py-2.5! px-5! text-sm!"
@@ -86,73 +126,6 @@ const Employees = () => {
             </button>
           </div>
         </div>
-
-        {/* Add Employee Modal/Form */}
-        {showAddForm && (
-          <div className="bg-white rounded-[32px] border border-gray-100 shadow-xl p-8 relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-40 h-40 bg-teal-50 rounded-full blur-3xl -ml-20 -mt-20 pointer-events-none" />
-            <div className="flex items-center justify-between mb-8">
-              <div>
-                <h3 style={{ fontFamily: "'Outfit', sans-serif" }} className="text-lg font-bold text-[#042f2e]">
-                  {activeType === 'Full-time' ? '🏢 Add Full-Time Staff' : '🧑‍💻 Add Freelancer'}
-                </h3>
-                <p className="text-xs text-gray-400 font-medium mt-1">
-                  {activeType === 'Full-time' ? 'Permanent team member with full benefits & salary' : 'Contract-based contributor — set hourly rate & project scope'}
-                </p>
-              </div>
-              <button onClick={() => setShowAddForm(false)} className="w-9 h-9 flex items-center justify-center rounded-xl bg-gray-100 text-gray-400 hover:bg-rose-50 hover:text-rose-500 transition-all text-lg font-bold">×</button>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <div>
-                <label className="block text-[9px] font-bold uppercase tracking-widest text-gray-400 mb-2">Full Name</label>
-                <input type="text" placeholder="e.g. Ravi Sharma" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full px-4 py-3 rounded-2xl border border-gray-200 text-sm font-medium text-[#042f2e] focus:outline-none focus:ring-4 focus:ring-teal-500/10 focus:border-teal-400 transition-all" />
-              </div>
-              <div>
-                <label className="block text-[9px] font-bold uppercase tracking-widest text-gray-400 mb-2">Email Address</label>
-                <input type="email" placeholder="e.g. ravi@worknest.com" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full px-4 py-3 rounded-2xl border border-gray-200 text-sm font-medium text-[#042f2e] focus:outline-none focus:ring-4 focus:ring-teal-500/10 focus:border-teal-400 transition-all" />
-              </div>
-              <div>
-                <label className="block text-[9px] font-bold uppercase tracking-widest text-gray-400 mb-2">Job Title / Role</label>
-                <input type="text" placeholder="e.g. Senior Backend Dev" value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})} className="w-full px-4 py-3 rounded-2xl border border-gray-200 text-sm font-medium text-[#042f2e] focus:outline-none focus:ring-4 focus:ring-teal-500/10 focus:border-teal-400 transition-all" />
-              </div>
-              <div>
-                <label className="block text-[9px] font-bold uppercase tracking-widest text-gray-400 mb-2">Department</label>
-                <select value={formData.dept} onChange={e => setFormData({...formData, dept: e.target.value})} className="w-full px-4 py-3 rounded-2xl border border-gray-200 text-sm font-medium text-[#042f2e] focus:outline-none focus:ring-4 focus:ring-teal-500/10 focus:border-teal-400 transition-all bg-white">
-                  <option value="">Select department...</option>
-                  <option>Engineering</option>
-                  <option>Design</option>
-                  <option>Product</option>
-                  <option>HR</option>
-                  <option>Management</option>
-                </select>
-              </div>
-              {activeType === 'Full-time' ? (
-                <div>
-                  <label className="block text-[9px] font-bold uppercase tracking-widest text-gray-400 mb-2">Monthly Salary (₹)</label>
-                  <input type="number" placeholder="e.g. 50000" value={formData.rate} onChange={e => setFormData({...formData, rate: e.target.value})} className="w-full px-4 py-3 rounded-2xl border border-gray-200 text-sm font-medium text-[#042f2e] focus:outline-none focus:ring-4 focus:ring-teal-500/10 focus:border-teal-400 transition-all" />
-                </div>
-              ) : (
-                <div>
-                  <label className="block text-[9px] font-bold uppercase tracking-widest text-gray-400 mb-2">Hourly Rate (₹)</label>
-                  <input type="number" placeholder="e.g. 1500 /hr" value={formData.rate} onChange={e => setFormData({...formData, rate: e.target.value})} className="w-full px-4 py-3 rounded-2xl border border-gray-200 text-sm font-medium text-[#042f2e] focus:outline-none focus:ring-4 focus:ring-teal-500/10 focus:border-teal-400 transition-all" />
-                </div>
-              )}
-              {activeType === 'Freelancer' && (
-                <div>
-                  <label className="block text-[9px] font-bold uppercase tracking-widest text-gray-400 mb-2">Contract End Date</label>
-                  <input type="date" value={formData.contractEnd} onChange={e => setFormData({...formData, contractEnd: e.target.value})} className="w-full px-4 py-3 rounded-2xl border border-gray-200 text-sm font-medium text-[#042f2e] focus:outline-none focus:ring-4 focus:ring-teal-500/10 focus:border-teal-400 transition-all" />
-                </div>
-              )}
-            </div>
-            <div className="flex items-center justify-end gap-3 mt-8">
-              <button onClick={() => setShowAddForm(false)} className="px-6 py-3 rounded-2xl border border-gray-200 text-sm font-bold text-gray-400 hover:bg-gray-50 transition-all">Cancel</button>
-              <button onClick={() => { alert(`${activeType} '${formData.name}' added!`); setShowAddForm(false); setFormData({ name:'', role:'', dept:'', email:'', rate:'' }); }} className="btn-primary py-3! px-8! text-sm!">
-                <UserPlus size={16} />
-                Confirm & Add
-              </button>
-            </div>
-          </div>
-        )}
 
         {/* Table/List View */}
         <div className="bg-white rounded-[40px] border border-gray-100 overflow-hidden shadow-sm">
@@ -173,8 +146,8 @@ const Employees = () => {
                 <tr key={emp.id} className="hover:bg-teal-50/10 transition-colors group cursor-pointer" onClick={() => handleAction(`Viewing ${emp.name} details`)}>
                   <td className="px-8 py-5">
                     <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-xl bg-gray-100 border border-gray-200 overflow-hidden shrink-0">
-                        <img src={emp.avatar} alt={emp.name} />
+                      <div className="w-10 h-10 rounded-xl bg-gray-100 border border-gray-200 overflow-hidden shrink-0 flex items-center justify-center">
+                        <img src={emp.avatar} alt={emp.name} className="w-full h-full object-cover" />
                       </div>
                       <div>
                         <div className="text-sm font-bold text-[#042f2e] group-hover:text-teal-700 transition-colors">{emp.name}</div>
@@ -211,6 +184,11 @@ const Employees = () => {
                   </td>
                 </tr>
               ))}
+              {filteredEmployees.length === 0 && (
+                <tr>
+                  <td colSpan="6" className="px-8 py-20 text-center text-gray-400 font-bold uppercase tracking-widest text-[10px]">No staff members found.</td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

@@ -9,19 +9,45 @@ import {
   ShieldCheck,
 } from "lucide-react";
 
+import { useAuth } from "../context/AuthContext";
+
 const Login = () => {
   const [formData, setFormData] = useState({ email: "", password: "" });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState("");
   const navigate = useNavigate();
+  const { login } = useAuth();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
-    // Simulate authentication
-    setTimeout(() => {
+    setError("");
+
+    try {
+      const response = await fetch("http://localhost:5000/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        login(data);
+        if (data.role === "admin") {
+          navigate("/app/dashboard");
+        } else {
+          navigate("/employee/dashboard");
+        }
+      } else {
+        setError(data.message || "Login failed");
+      }
+    } catch (err) {
+      console.error(err);
+      setError("Server error. Please try again.");
+    } finally {
       setIsSubmitting(false);
-      navigate("/app/dashboard");
-    }, 1500);
+    }
   };
 
   const handleSocialLogin = (role) => {
@@ -61,6 +87,11 @@ const Login = () => {
         </div>
 
         <div className="bg-white py-10 px-8 rounded-[32px] border border-teal-50 shadow-[0_20px_50px_rgba(4,47,46,0.06)]">
+          {error && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-600 text-xs font-semibold rounded-xl text-center">
+              {error}
+            </div>
+          )}
           <form className="space-y-6" onSubmit={handleSubmit}>
             <div className="space-y-2">
               <label className="text-[10px] font-bold text-teal uppercase tracking-widest ml-1">
