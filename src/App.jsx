@@ -28,6 +28,7 @@ import Notifications from "./pages/admin/modules/Notifications";
 import Settings from "./pages/admin/modules/Settings";
 import Profile from "./pages/admin/modules/Profile";
 import AddEmployee from "./pages/admin/AddEmployee";
+import EditEmployee from "./pages/admin/EditEmployee";
 import AddFreelancer from "./pages/admin/AddFreelancer";
 import Teams from "./pages/admin/Teams";
 
@@ -52,57 +53,13 @@ function App() {
         <GlobalProvider>
         <Router>
           <Routes>
-            {/* Marketing/Client Routes (Wrapped in Navbar/Footer) */}
-            <Route
-              element={
-                <Layout>
-                  <section className="animate-in">
-                    <Home />
-                  </section>
-                </Layout>
-              }
-              path="/"
-            />
-            <Route
-              element={
-                <Layout>
-                  <Product />
-                </Layout>
-              }
-              path="/product"
-            />
-            <Route
-              element={
-                <Layout>
-                  <Pricing />
-                </Layout>
-              }
-              path="/pricing"
-            />
-            <Route
-              element={
-                <Layout>
-                  <About />
-                </Layout>
-              }
-              path="/about"
-            />
-            <Route
-              element={
-                <Layout>
-                  <Resources />
-                </Layout>
-              }
-              path="/resources"
-            />
-            <Route
-              element={
-                <Layout>
-                  <Contact />
-                </Layout>
-              }
-              path="/contact"
-            />
+            {/* Marketing/Client Routes */}
+            <Route element={<Layout><section className="animate-in"><Home /></section></Layout>} path="/" />
+            <Route element={<Layout><Product /></Layout>} path="/product" />
+            <Route element={<Layout><Pricing /></Layout>} path="/pricing" />
+            <Route element={<Layout><About /></Layout>} path="/about" />
+            <Route element={<Layout><Resources /></Layout>} path="/resources" />
+            <Route element={<Layout><Contact /></Layout>} path="/contact" />
             <Route element={<Login />} path="/login" />
             <Route element={<Register />} path="/register" />
 
@@ -112,10 +69,8 @@ function App() {
               <Route path="dashboard" element={<Dashboard />} />
               <Route path="employees" element={<Employees />} />
               <Route path="employees/add" element={<AddEmployee />} />
-              <Route
-                path="employees/add-freelancer"
-                element={<AddFreelancer />}
-              />
+              <Route path="employees/edit/:id" element={<EditEmployee />} />
+              <Route path="employees/add-freelancer" element={<AddFreelancer />} />
               <Route path="teams" element={<Teams />} />
               <Route path="tasks" element={<Tasks />} />
               <Route path="attendance" element={<Attendance />} />

@@ -48,8 +48,16 @@ const EmployeeSchema = new mongoose.Schema({
   otherAllowances: [{ label: String, amount: Number }],
   carPerquisite: { type: Number },
   otherPerquisites: [{ label: String, amount: Number }],
+  
+  // Freelancer / Billing Setup
+  billingRate: { type: Number },
+  frequency: { type: String },
+  currency: { type: String, default: 'INR' },
+  gstEnabled: { type: Boolean, default: false },
+  gstNumber: { type: String },
 
-  // Relationships
+  // Isolation
+  company: { type: String, required: true },
   addedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
