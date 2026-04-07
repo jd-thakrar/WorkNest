@@ -22,6 +22,7 @@ import {
 import { useGlobal } from "../../context/GlobalContext.jsx";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { API_URL } from "../../config";
+import toast from "react-hot-toast";
 
 // ─── MASTER DATA ──────────────────────────────────────────────────────────────
 const CATEGORIES = [
@@ -414,6 +415,11 @@ const Tasks = () => {
               status: saved.status, category: saved.category
            };
            setTasks((prev) => isEdit ? prev.map(t => t.id === mapped.id ? mapped : t) : [mapped, ...prev]);
+           
+           toast.success(isEdit ? 'Strategic objectives updated' : 'New initiative launched', {
+              icon: isEdit ? '📝' : '🚀',
+              style: { borderRadius: '16px', background: '#042f2e', color: '#fff', fontSize: '10px', fontWeight: 'bold' }
+           });
         }
      } catch (err) { console.error(err); }
   };

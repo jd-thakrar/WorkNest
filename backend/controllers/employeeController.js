@@ -1,6 +1,7 @@
 import Employee from '../models/Employee.js';
 import User from '../models/User.js';
 import Team from '../models/Team.js';
+import Notification from '../models/Notification.js';
 
 // @desc    Get all employees for the authenticated admin
 // @route   GET /api/employees
@@ -68,6 +69,15 @@ export const addEmployee = async (req, res) => {
     };
 
     const employee = await Employee.create(employeeData);
+
+    // 3. Create Notification for Admin
+    await Notification.create({
+      type: 'success',
+      title: 'New Registry Entry',
+      desc: `Employee ${name} (ID: ${employeeId}) has been successfully onboarded to the central database.`,
+      userId: req.user._id
+    });
+
     res.status(201).json(employee);
   } catch (error) {
     res.status(400).json({ message: error.message });

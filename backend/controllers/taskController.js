@@ -1,4 +1,5 @@
 import Task from '../models/Task.js';
+import Notification from '../models/Notification.js';
 
 export const getTasks = async (req, res) => {
   try {
@@ -18,6 +19,15 @@ export const addTask = async (req, res) => {
       company: req.user.company,
       addedBy: req.user._id,
     });
+    
+    // Create Notification
+    await Notification.create({
+      type: 'info',
+      title: 'New Strategy Task',
+      desc: `Task "${task.name}" has been drafted and assigned to team members.`,
+      userId: req.user._id
+    });
+
     const populated = await Task.findById(task._id).populate('teamId').populate('members', 'firstName lastName');
     res.status(201).json(populated);
   } catch (error) {

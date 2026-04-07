@@ -1,25 +1,20 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
+import ReactDOM from "react-dom";
 import AdminLayout from "../../../layouts/AdminLayout";
 import {
   FileText,
   Search,
   Calendar,
-  Filter,
-  ChevronRight,
   Users,
   Wallet,
   Clock,
   Activity,
   ShieldCheck,
-  CreditCard,
-  Target,
-  FileSpreadsheet,
-  FileJson,
   Printer,
   ChevronDown,
   ArrowRightCircle,
-  TrendingUp,
   CheckCircle2,
+  AlertCircle,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useGlobal } from "../../../context/GlobalContext.jsx";
@@ -27,6 +22,7 @@ import { useAuth } from "../../../context/AuthContext.jsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
+import toast from "react-hot-toast";
 
 // ─── MASTER REPORT CATALOG ──────────────────────────────────────────────────
 const REPORT_CATALOG = [
@@ -59,89 +55,6 @@ const REPORT_CATALOG = [
     icon: Clock,
   },
 ];
-
-const DUMMY_DATA = {
-  "salary-summary": {
-    cols: [
-      "Month",
-      "Headcount",
-      "Total Gross",
-      "Total Deduction",
-      "Net Payroll",
-    ],
-    rows: [
-      {
-        month: "March 2026",
-        count: 10,
-        gross: "₹5,00,000",
-        deduct: "₹32,000",
-        net: "₹4,68,000",
-      },
-      {
-        month: "February 2026",
-        count: 10,
-        gross: "₹5,00,000",
-        deduct: "₹32,000",
-        net: "₹4,68,000",
-      },
-      {
-        month: "January 2026",
-        count: 8,
-        gross: "₹4,00,000",
-        deduct: "₹25,600",
-        net: "₹3,74,400",
-      },
-    ],
-    insights: [
-      {
-        label: "Total Net Payroll",
-        val: "₹4,68,000",
-        icon: Wallet,
-        color: "text-teal-600",
-      },
-      {
-        label: "Avg Monthly Pay",
-        val: "₹46,800",
-        icon: Target,
-        color: "text-[#042f2e]",
-      },
-      {
-        label: "Gross Total",
-        val: "₹5,00,000",
-        icon: Activity,
-        color: "text-blue-600",
-      },
-    ],
-  },
-  attendance: {
-    cols: ["Employee", "Present Days", "Leave Days", "Late Entries"],
-    rows: [
-      { emp: "Adi Thakrar", p: "22", lv: "2", late: "1" },
-      { emp: "Chirag Parekh", p: "24", lv: "0", late: "0" },
-      { emp: "Jeet D.", p: "23", lv: "1", late: "3" },
-    ],
-    insights: [
-      {
-        label: "Avg Attendance",
-        val: "92%",
-        icon: Clock,
-        color: "text-teal-600",
-      },
-      {
-        label: "Total Leaves",
-        val: "14",
-        icon: Calendar,
-        color: "text-rose-600",
-      },
-      {
-        label: "Late Ratio",
-        val: "4.2%",
-        icon: Clock,
-        color: "text-amber-600",
-      },
-    ],
-  },
-};
 
 const formatCurr = (val) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(val);
 
@@ -217,17 +130,127 @@ const FilterInput = ({ label, icon: Icon, type = "select", options = [] }) => (
   </div>
 );
 
+const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+// ─── CUSTOM STYLED DROPDOWN (Portal-based, never clips) ─────────────────────
+ const StyledDropdown = ({ label, icon: Icon, value, onChange, options }) => {
+  const [open, setOpen] = React.useState(false);
+  const [rect, setRect] = React.useState(null);
+  const triggerRef = React.useRef(null);
+
+  const handleOpen = () => {
+    if (triggerRef.current) {
+      const r = triggerRef.current.getBoundingClientRect();
+      setRect({ top: r.bottom + 6, left: r.left, width: r.width });
+    }
+    setOpen(prev => !prev);
+  };
+
+  React.useEffect(() => {
+    if (!open) return;
+    const close = (e) => {
+      if (triggerRef.current && !triggerRef.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [open]);
+
+  const selected = options.find(o => o.value === value);
+
+  return (
+    <div className="space-y-1.5" style={{ flex: 1, minWidth: 0 }}>
+      {label && <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">{label}</label>}
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={handleOpen}
+        className={`w-full flex items-center gap-2 px-3 py-[9px] rounded-xl border text-xs font-bold transition-all duration-200 ${
+          open
+            ? 'bg-[#042f2e] border-[#042f2e] text-white shadow-lg'
+            : 'bg-white border-gray-200 text-[#042f2e] hover:border-teal-400 hover:shadow-sm'
+        }`}
+      >
+        {Icon && <Icon size={13} className={open ? 'text-teal-300 shrink-0' : 'text-gray-400 shrink-0'} />}
+        <span className="flex-1 text-left truncate">{selected?.label ?? 'Select...'}</span>
+        <ChevronDown
+          size={12}
+          className={`shrink-0 transition-transform duration-200 ${
+            open ? 'rotate-180 text-teal-300' : 'text-gray-400'
+          }`}
+        />
+      </button>
+
+      {open && rect && ReactDOM.createPortal(
+        <div
+          style={{
+            position: 'fixed',
+            top: rect.top,
+            left: rect.left,
+            width: rect.width,
+            zIndex: 99999,
+          }}
+        >
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-2xl overflow-hidden"
+            style={{ boxShadow: '0 20px 60px -10px rgba(0,0,0,0.18)' }}
+          >
+            {/* Header */}
+            <div className="px-4 py-2.5 border-b border-gray-50 bg-gray-50/80">
+              <p className="text-[9px] font-black uppercase tracking-[0.15em] text-gray-400">
+                {label || 'Select'}
+              </p>
+            </div>
+            {/* Options */}
+            <div className="max-h-56 overflow-y-auto">
+              {options.map((opt) => {
+                const isActive = opt.value === value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onMouseDown={(e) => { e.preventDefault(); onChange(opt.value); setOpen(false); }}
+                    className={`w-full flex items-center justify-between px-4 py-2.5 text-xs font-bold text-left transition-all duration-150 ${
+                      isActive
+                        ? 'bg-[#042f2e] text-white'
+                        : 'text-[#042f2e] hover:bg-teal-50 hover:text-teal-700'
+                    }`}
+                  >
+                    <span>{opt.label}</span>
+                    {isActive && <span className="w-1.5 h-1.5 rounded-full bg-teal-400 shrink-0" />}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+    </div>
+  );
+};
+
 const Reports = () => {
-  const { employees, financials, attendance, tasks } = useGlobal();
+  const { employees, financials, attendance } = useGlobal();
+  
   const [selectedId, setSelectedId] = useState("salary-summary");
   const [isGenerating, setIsGenerating] = useState(false);
   const [hasData, setHasData] = useState(false);
   const [reportResult, setReportResult] = useState({ cols: [], rows: [], insights: [] });
 
   // Filters
-  const [period, setPeriod] = useState("March 2026");
+  const [selMonth, setSelMonth] = useState(new Date().getMonth());
+  const [selYear, setSelYear] = useState(new Date().getFullYear());
   const [dept, setDept] = useState("All Departments");
   const [search, setSearch] = useState("");
+
+  // Always show all 12 months — user picks freely, "No Data" shown if nothing found
+  const availableYears = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    const years = [];
+    for (let y = currentYear + 1; y >= 2020; y--) {
+      years.push(y);
+    }
+    return years;
+  }, []);
 
   const selectedReport = REPORT_CATALOG.find((r) => r.id === selectedId);
 
@@ -235,7 +258,7 @@ const Reports = () => {
     setIsGenerating(true);
     setHasData(false);
     
-    setTimeout(() => {
+    const period = `${monthNames[selMonth]} ${selYear}`;
       let filteredEmps = employees;
       if (dept !== "All Departments") {
         filteredEmps = filteredEmps.filter(e => e.dept === dept);
@@ -244,11 +267,9 @@ const Reports = () => {
         filteredEmps = filteredEmps.filter(e => e.name.toLowerCase().includes(search.toLowerCase()));
       }
 
-      // Period Parsing (e.g. "March 2026")
-      const [pMonth, pYear] = period.split(" ");
-      const monthMap = { "January": 0, "February": 1, "March": 2, "April": 3, "May": 4, "June": 5, "July": 6, "August": 7, "September": 8, "October": 9, "November": 10, "December": 11 };
-      const targetMonth = monthMap[pMonth];
-      const targetYear = parseInt(pYear);
+      // Period Parsing
+      const targetMonth = selMonth;
+      const targetYear = selYear;
 
       let cols = [];
       let rows = [];
@@ -256,9 +277,11 @@ const Reports = () => {
 
       if (selectedId === "salary-summary") {
         cols = ["Employee", "Type", "Gross Pay", "Deductions", "Net Pay", "Status"];
-        rows = filteredEmps.map(e => {
-           // Search financials for matching emp AND matching month string
-           const f = financials.find(fin => fin.id === e.id && fin.month === period) || { gross: 0, deductions: 0, net: 0, status: 'Draft' };
+        // ONLY include employees who actually have a financial record for THIS month
+        const empsWithFin = filteredEmps.filter(e => financials.some(fin => fin.id === e.id && fin.month === period));
+        
+        rows = empsWithFin.map(e => {
+           const f = financials.find(fin => fin.id === e.id && fin.month === period);
            return {
               emp: e.name,
               type: e.type,
@@ -269,19 +292,21 @@ const Reports = () => {
            };
         });
         
-        const totalNet = filteredEmps.reduce((acc, e) => {
+        const totalNet = empsWithFin.reduce((acc, e) => {
            const f = financials.find(fin => fin.id === e.id && fin.month === period);
            return acc + (f?.net || 0);
         }, 0);
         insights = [
           { label: "Reported Net", val: formatCurr(totalNet), icon: Wallet, color: "text-teal-600" },
-          { label: "Headcount", val: filteredEmps.length, icon: Users, color: "text-[#042f2e]" },
-          { label: "Avg Payout", val: formatCurr(filteredEmps.length > 0 ? totalNet / filteredEmps.length : 0), icon: Activity, color: "text-blue-600" }
+          { label: "Headcount", val: empsWithFin.length, icon: Users, color: "text-[#042f2e]" },
+          { label: "Avg Payout", val: formatCurr(empsWithFin.length > 0 ? totalNet / empsWithFin.length : 0), icon: Activity, color: "text-blue-600" }
         ];
       } else if (selectedId === "payslip") {
         cols = ["Reference", "Employee", "Gross", "Net Pay", "Bank Status", "Email"];
-        rows = filteredEmps.map(e => {
-           const f = financials.find(fin => fin.id === e.id && fin.month === period) || { gross: 0, net: 0, status: 'Draft' };
+        const empsWithFin = filteredEmps.filter(e => financials.some(fin => fin.id === e.id && fin.month === period));
+        
+        rows = empsWithFin.map(e => {
+           const f = financials.find(fin => fin.id === e.id && fin.month === period);
            return {
               ref: `PS-${e.id?.slice(-4) || 'XXXX'}`,
               name: e.name,
@@ -297,54 +322,24 @@ const Reports = () => {
         ];
       } else if (selectedId === "tds") {
         cols = ["Taxpayer", "Type", "Gross Income", "TDS Deduct", "PAN Ref", "Statutory Status"];
-        rows = filteredEmps.map(e => {
-           const f = financials.find(fin => fin.id === e.id && fin.month === period) || { gross: 0, deductions: 0 };
-           const tdsAmt = (f.gross || 0) * (e.type === 'Freelancer' ? 0.10 : 0.05); // Simulated TDS Logic
+        const empsWithFin = filteredEmps.filter(e => financials.some(fin => fin.id === e.id && fin.month === period));
+        
+        rows = empsWithFin.map(e => {
+           const f = financials.find(fin => fin.id === e.id && fin.month === period);
+           const tdsAmt = (f?.gross || 0) * (e.type === 'Freelancer' ? 0.10 : 0.05);
            return {
               name: e.name,
               category: e.type,
-              income: formatCurr(f.gross || 0),
+              income: formatCurr(f?.gross || 0),
               tds: formatCurr(tdsAmt),
               pan: e.id?.toUpperCase().slice(-5) || 'PAN-ERR',
               status: 'Calculatd (194J/I)'
            };
         });
-        const totalTDS = rows.reduce((acc, r) => acc + parseFloat(r.tds.replace(/[₹,]/g,'')), 0);
+        const totalTDS = rows.reduce((acc, r) => acc + parseFloat(r.tds.replace(/[₹,]/g,'') || 0), 0);
         insights = [
           { label: "TDS Liability", val: formatCurr(totalTDS), icon: ShieldCheck, color: "text-rose-600" },
           { label: "Compliant Refs", val: rows.length, icon: CheckCircle2, color: "text-teal-600" }
-        ];
-      } else if (selectedId === "contract") {
-        cols = ["Partner", "Dept", "Joining", "Contract Type", "Salary Scale", "Mobile"];
-        rows = filteredEmps.map(e => ({
-          name: e.name,
-          dept: e.dept,
-          join: new Date(e.createdAt).toLocaleDateString(),
-          type: e.type,
-          scale: formatCurr(e.salary || 0),
-          call: e.phone || '99XXXXXX'
-        }));
-        insights = [
-          { label: "Active Partners", val: rows.length, icon: Users, color: "text-[#042f2e]" },
-          { label: "Labor Scale", val: formatCurr(rows.reduce((acc, r) => acc + parseFloat(r.scale.replace(/[₹,]/g,'')), 0)), icon: Wallet, color: "text-teal-600" }
-        ];
-      } else if (selectedId === "productivity") {
-        cols = ["Employee", "Assigned Tasks", "Completion", "Est. Salary Cost", "Efficiency"];
-        rows = filteredEmps.map(e => {
-          const empTasks = tasks.filter(t => t.members?.includes(e.id) || t.members?.includes(e._id));
-          const doneTasks = empTasks.filter(t => t.status === 'Completed').length;
-          const salary = financials[e.id]?.net || 0;
-          return {
-            name: e.name,
-            cnt: empTasks.length,
-            done: `${doneTasks}/${empTasks.length}`,
-            cost: formatCurr(salary),
-            eff: empTasks.length > 0 ? `${Math.round((doneTasks / empTasks.length) * 100)}%` : "0%"
-          };
-        });
-        insights = [
-          { label: "Avg Efficiency", val: '84.2%', icon: Activity, color: "text-teal-600" },
-          { label: "Labor Burn", val: formatCurr(filteredEmps.reduce((acc, e) => acc + (financials[e.id]?.net || 0), 0)), icon: TrendingUp, color: "text-rose-600" }
         ];
       } else {
         // Attendance logic
@@ -364,37 +359,46 @@ const Reports = () => {
             ol: empAtts.filter(a => a.status === 'On Leave').length
           };
         });
+        // Filter: only keep employees who actually have ANY attendance record this month
+        const rowsWithData = rows.filter(r => r.p > 0 || r.a > 0 || r.l > 0 || r.ol > 0);
+        rows = rowsWithData;
+
         const totalP = rows.reduce((acc, r) => acc + r.p, 0);
         const totalA = rows.reduce((acc, r) => acc + r.a, 0);
         insights = [
-          { label: "Avg Attendance", val: `${filteredEmps.length > 0 ? Math.round((totalP / (totalP + totalA || 1)) * 100) : 0}%`, icon: Clock, color: "text-teal-600" },
-          { label: "Total Absences", val: totalA, icon: Calendar, color: "text-rose-600" },
-          { label: "Late Ratio", val: `${totalP > 0 ? ((rows.reduce((acc,r) => acc+r.l, 0) / totalP) * 100).toFixed(1) : 0}%`, icon: Activity, color: "text-amber-600" }
+          { label: "Avg Attendance", val: rows.length > 0 ? `${Math.round((totalP / (totalP + totalA || 1)) * 100)}%` : '—', icon: Clock, color: "text-teal-600" },
+          { label: "Total Absences", val: rows.length > 0 ? totalA : '—', icon: Calendar, color: "text-rose-600" },
+          { label: "Late Ratio", val: rows.length > 0 ? `${totalP > 0 ? ((rows.reduce((acc,r) => acc+r.l, 0) / totalP) * 100).toFixed(1) : 0}%` : '—', icon: Activity, color: "text-amber-600" }
         ];
       }
 
       setReportResult({ cols, rows, insights });
       setIsGenerating(false);
       setHasData(true);
-    }, 800);
   };
 
   const handleDownloadCSV = () => {
     if (!hasData) return;
+    const periodStr = `${monthNames[selMonth]}_${selYear}`;
     const csvContent = reportResult.cols.join(",") + "\n" + 
       reportResult.rows.map(row => Object.values(row).join(",")).join("\n");
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.setAttribute("href", url);
-    link.setAttribute("download", `${selectedId}_${period.replace(' ','_')}.csv`);
+    link.setAttribute("download", `${selectedId}_${periodStr}.csv`);
     link.click();
+    
+    toast.success('Inventory manifest exported to CSV', {
+       style: { borderRadius: '16px', background: '#042f2e', color: '#fff', fontSize: '10px', fontWeight: 'bold' }
+    });
   };
 
   const handleDownloadPDF = () => {
     if (!hasData) return;
+    const periodStr = `${monthNames[selMonth]} ${selYear}`;
     const doc = new jsPDF();
-    doc.text(`${selectedReport.name} - ${period}`, 14, 15);
+    doc.text(`${selectedReport.name} - ${periodStr}`, 14, 15);
     autoTable(doc, {
       startY: 20,
       head: [reportResult.cols],
@@ -402,15 +406,24 @@ const Reports = () => {
       theme: 'grid',
       headStyles: { fillColor: [4, 47, 46] }
     });
-    doc.save(`${selectedId}_${period.replace(' ','_')}.pdf`);
+    doc.save(`${selectedId}_${periodStr.replace(' ','_')}.pdf`);
+    
+    toast.success('Structured PDF documentation generated', {
+       style: { borderRadius: '16px', background: '#042f2e', color: '#fff', fontSize: '10px', fontWeight: 'bold' }
+    });
   };
 
   const handleDownloadXLS = () => {
     if (!hasData) return;
+    const periodStr = `${monthNames[selMonth]}_${selYear}`;
     const ws = XLSX.utils.json_to_sheet(reportResult.rows);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Report");
-    XLSX.utils.writeFile(wb, `${selectedId}_${period.replace(' ','_')}.xlsx`);
+    XLSX.utils.writeFile(wb, `${selectedId}_${periodStr}.xlsx`);
+    
+    toast.success('Comprehensive Workbook (XLSX) exported', {
+       style: { borderRadius: '16px', background: '#042_2e', color: '#fff', fontSize: '10px', fontWeight: 'bold' }
+    });
   };
 
   return (
@@ -467,42 +480,35 @@ const Reports = () => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-6 border-t border-gray-50">
-                  <div className="space-y-2 flex-1 min-w-[180px]">
-                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Reporting Period</label>
-                    <div className="relative group">
-                      <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
-                        <Calendar size={14} className="text-gray-400 group-focus-within:text-teal-600 transition-colors" />
-                      </div>
-                      <select 
-                        value={period}
-                        onChange={(e) => setPeriod(e.target.value)}
-                        className="w-full pl-11 pr-4 py-2.5 bg-gray-50/50 border border-gray-100 rounded-[20px] text-xs font-bold text-[#042f2e] focus:outline-none focus:ring-4 focus:ring-teal-500/5 focus:border-teal-200 transition-all appearance-none cursor-pointer"
-                      >
-                         <option>March 2026</option>
-                         <option>February 2026</option>
-                      </select>
-                    </div>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 pt-6 border-t border-gray-50">
+                  <div className="md:col-span-2 flex gap-3 items-end">
+                    {/* Month Dropdown */}
+                    <StyledDropdown
+                      label="Period Month"
+                      icon={Calendar}
+                      value={selMonth}
+                      onChange={(v) => { setSelMonth(v); setHasData(false); }}
+                      options={monthNames.map((m, i) => ({ label: m, value: i }))}
+                    />
+                    {/* Year Dropdown */}
+                    <StyledDropdown
+                      label="Year"
+                      value={selYear}
+                      onChange={(v) => { setSelYear(v); setHasData(false); }}
+                      options={availableYears.map(y => ({ label: String(y), value: y }))}
+                    />
                   </div>
 
-                  <div className="space-y-2 flex-1 min-w-[180px]">
-                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Department</label>
-                    <div className="relative group">
-                      <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
-                        <Users size={14} className="text-gray-400 group-focus-within:text-teal-600 transition-colors" />
-                      </div>
-                      <select 
-                        value={dept}
-                        onChange={(e) => setDept(e.target.value)}
-                        className="w-full pl-11 pr-4 py-2.5 bg-gray-50/50 border border-gray-100 rounded-[20px] text-xs font-bold text-[#042f2e] focus:outline-none focus:ring-4 focus:ring-teal-500/5 focus:border-teal-200 transition-all appearance-none cursor-pointer"
-                      >
-                         <option>All Departments</option>
-                         {Array.from(new Set(employees.map(e => e.dept))).filter(Boolean).map(d => (
-                            <option key={d} value={d}>{d}</option>
-                         ))}
-                      </select>
-                    </div>
-                  </div>
+                  <StyledDropdown
+                    label="Department"
+                    icon={Users}
+                    value={dept}
+                    onChange={(v) => setDept(v)}
+                    options={[
+                      { label: 'All Departments', value: 'All Departments' },
+                      ...Array.from(new Set(employees.map(e => e.dept))).filter(Boolean).map(d => ({ label: d, value: d }))
+                    ]}
+                  />
 
                   <div className="space-y-2 flex-1 min-w-[180px]">
                     <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Search Entity</label>
@@ -562,7 +568,11 @@ const Reports = () => {
 
           {/* Quick Insights Summary */}
           <section className="bg-white p-8 rounded-[40px] border border-gray-100 shadow-sm flex flex-col justify-center space-y-6">
-            {(hasData ? reportResult.insights : (DUMMY_DATA[selectedId]?.insights || DUMMY_DATA["salary-summary"].insights)).map((ins, i) => (
+            {(hasData ? reportResult.insights : [
+              { label: "Total Net Payroll", val: "₹0", icon: Wallet, color: "text-teal-600" },
+              { label: "Headcount", val: "0", icon: Users, color: "text-[#042f2e]" },
+              { label: "Avg Payout", val: "₹0", icon: Activity, color: "text-blue-600" }
+            ]).map((ins, i) => (
               <div key={i} className="flex items-center gap-4">
                 <div
                   className={`w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center ${ins.color} shadow-sm`}
@@ -654,7 +664,16 @@ const Reports = () => {
                       </tr>
                     ))}
                   </tbody>
-                </table>
+                 </table>
+                 {reportResult.rows.length === 0 && (
+                   <div className="py-20 flex flex-col items-center justify-center text-center">
+                     <div className="w-12 h-12 rounded-2xl bg-gray-50 flex items-center justify-center text-gray-300 mb-4">
+                       <AlertCircle size={24} />
+                     </div>
+                     <p className="text-xs font-black text-[#042f2e] uppercase tracking-widest">no data</p>
+                     <p className="text-[10px] text-gray-400 mt-1 font-bold">No documentation exists for {monthNames[selMonth]} {selYear}.</p>
+                   </div>
+                 )}
               </div>
             </motion.div>
           ) : (

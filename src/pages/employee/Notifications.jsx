@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import EmployeeLayout from "../../layouts/EmployeeLayout";
 import { motion } from "framer-motion";
 import {
@@ -78,29 +78,30 @@ const NOTIFICATIONS_DATA = [
 
 const Notifications = () => {
   const [filter, setFilter] = useState("All");
+  const [notifications, setNotifications] = useState(NOTIFICATIONS_DATA);
 
-  const [visibleDots, setVisibleDots] = useState(() => {
-    const initial = {};
-    NOTIFICATIONS_DATA.forEach((n) => {
-      if (n.unread) initial[n.id] = true;
-    });
-    return initial;
-  });
+  const handleArchive = (e, id) => {
+    e.stopPropagation();
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, archived: true } : n));
+  };
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setVisibleDots({});
-    }, 5000);
+  const handleDelete = (e, id) => {
+    e.stopPropagation();
+    setNotifications(prev => prev.filter(n => n.id !== id));
+  };
 
-    return () => clearTimeout(timer);
-  }, []);
+  const handleMarkAllRead = () => {
+    setNotifications(prev => prev.map(n => ({ ...n, unread: false })));
+  };
 
-  const handleAction = (msg) => alert(`${msg} executed!`);
+  const handleMarkRead = (id) => {
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, unread: false } : n));
+  };
 
-  const filteredNotifications = NOTIFICATIONS_DATA.filter((n) => {
-    if (filter === "Unread") return n.unread;
-    if (filter === "Archived") return false;
-    return true;
+  const filteredNotifications = notifications.filter((n) => {
+    if (filter === "Unread") return n.unread && !n.archived;
+    if (filter === "Archived") return n.archived;
+    return !n.archived;
   });
 
   return (
@@ -119,7 +120,7 @@ const Notifications = () => {
             ))}
           </div>
           <button
-            onClick={() => handleAction("Mark All Read")}
+            onClick={handleMarkAllRead}
             className="text-[9px] font-black text-slate-400 hover:text-teal-600 uppercase tracking-widest transition-colors"
           >
             Clear Unread
@@ -130,7 +131,8 @@ const Notifications = () => {
           {filteredNotifications.map((n) => (
             <div
               key={n.id}
-              className="p-4 sm:p-5 flex items-start gap-4 hover:bg-slate-50/50 transition-all group cursor-pointer relative"
+              onClick={() => handleMarkRead(n.id)}
+              className={`p-4 sm:p-5 flex items-start gap-4 transition-all group cursor-pointer relative ${n.unread ? "bg-white hover:bg-slate-50/50" : "bg-slate-50/30 hover:bg-slate-50/80"}`}
             >
               <div
                 className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border border-black/5 ${n.color}`}
@@ -141,12 +143,12 @@ const Notifications = () => {
                 <div className="flex items-center justify-between mb-0.5">
                   <div className="flex items-center gap-2">
                     <h4
-                      className={`text-sm tracking-tight transition-colors ${n.unread && visibleDots[n.id] ? "font-black text-[#042f2e]" : "font-bold text-slate-600"}`}
+                      className={`text-sm tracking-tight transition-colors ${n.unread ? "font-black text-[#042f2e]" : "font-bold text-slate-600"}`}
                     >
                       {n.title}
                     </h4>
                     <AnimatePresence>
-                      {n.unread && visibleDots[n.id] && (
+                      {n.unread && (
                         <motion.div
                           initial={{ scale: 0, opacity: 0 }}
                           animate={{ scale: 1, opacity: 1 }}
@@ -166,14 +168,16 @@ const Notifications = () => {
               </div>
               <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button
-                  onClick={() => handleAction("Archive Item")}
+                  onClick={(e) => handleArchive(e, n.id)}
                   className="p-1.5 text-slate-300 hover:text-teal-600 rounded-lg transition-all"
+                  title="Archive"
                 >
                   <Inbox size={16} />
                 </button>
                 <button
-                  onClick={() => handleAction("Delete Item")}
+                  onClick={(e) => handleDelete(e, n.id)}
                   className="p-1.5 text-slate-300 hover:text-rose-500 rounded-lg transition-all"
+                  title="Delete"
                 >
                   <Trash2 size={16} />
                 </button>

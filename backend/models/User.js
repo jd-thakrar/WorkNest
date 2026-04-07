@@ -32,6 +32,10 @@ const UserSchema = new mongoose.Schema({
     enum: ['admin', 'employee'],
     default: 'employee',
   },
+  avatar: {
+    type: String,
+    default: '',
+  },
 }, { timestamps: true });
 
 // Pre-save hook to hash password

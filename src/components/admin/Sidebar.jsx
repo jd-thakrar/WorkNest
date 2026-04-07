@@ -15,7 +15,10 @@ import {
   Network,
 } from "lucide-react";
 
+import { useAuth } from "../../context/AuthContext";
+
 const Sidebar = ({ collapsed, setCollapsed }) => {
+  const { user } = useAuth();
   const location = useLocation();
 
   const menuItems = [
@@ -130,20 +133,20 @@ const Sidebar = ({ collapsed, setCollapsed }) => {
         </button>
 
         <div className="mt-4 pt-4 border-t border-gray-50 px-2 flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-gray-50 shrink-0 flex items-center justify-center overflow-hidden border border-gray-100 shadow-sm">
+          <div className="w-8 h-8 rounded-lg bg-[#042f2e]/5 shrink-0 flex items-center justify-center overflow-hidden border border-gray-100 shadow-sm">
             <img
-              src="/founders/jeet.png"
-              alt="Founder"
-              className="w-full h-full object-cover scale-110"
+              src={user?.avatar || `https://ui-avatars.com/api/?name=${(user?.name || 'Admin').replace(' ', '+')}&background=042f2e&color=fff&bold=true`}
+              alt={user?.name}
+              className="w-full h-full object-cover"
             />
           </div>
           {!collapsed && (
             <div className="min-w-0">
               <div className="text-[10px] font-black text-[#042f2e] truncate">
-                Jeet
+                {user?.name || 'Admin'}
               </div>
               <div className="text-[8px] text-gray-400 font-bold uppercase tracking-widest truncate">
-                Founder
+                {user?.role === 'admin' ? 'Admin' : (user?.role || 'Personnel')}
               </div>
             </div>
           )}

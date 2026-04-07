@@ -1,4 +1,5 @@
 import Team from '../models/Team.js';
+import Notification from '../models/Notification.js';
 
 // @desc    Get all teams for the authenticated admin
 // @route   GET /api/teams
@@ -35,6 +36,14 @@ export const createTeam = async (req, res) => {
       color: color || 'bg-teal-50 text-teal-600 border-teal-100',
       company: req.user.company,
       addedBy: req.user._id
+    });
+
+    // Create Notification
+    await Notification.create({
+      type: 'info',
+      title: 'Team Formation',
+      desc: `A new department/unit "${team.name}" has been established in the directory.`,
+      userId: req.user._id
     });
 
     const populatedTeam = await Team.findById(team._id)

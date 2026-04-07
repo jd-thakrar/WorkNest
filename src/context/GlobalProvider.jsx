@@ -6,7 +6,7 @@ import { API_URL } from "../config";
 export const GlobalProvider = ({ children }) => {
   const { user } = useAuth();
   const [employees, setEmployees] = useState([]);
-  const [financials, setFinancials] = useState({});
+  const [financials, setFinancials] = useState([]);
   const [tasks, setTasks] = useState([]);
   const [attendance, setAttendance] = useState([]);
   const [teams, setTeams] = useState([]);
@@ -39,6 +39,7 @@ export const GlobalProvider = ({ children }) => {
            role: e.designation, dept: e.department, 
            avatar: `https://ui-avatars.com/api/?name=${e.firstName}+${e.lastName}&background=random`,
            email: e.email, status: 'Active', type: e.type,
+           joiningDate: e.joiningDate || e.createdAt,
            baseSalary: Number(e.salary || e.basicSalary || e.basic || e.rate || 25000),
            hraAmount: Number(e.hra || 10000),
            totalAllowances: Number(e.travel || 0) + Number(e.daily || 0) + (Array.isArray(e.otherAllowances) ? e.otherAllowances.reduce((sum, i) => sum + Number(i.amount || 0), 0) : 0),
@@ -80,7 +81,8 @@ export const GlobalProvider = ({ children }) => {
           const pays = await payRes.json();
           // Store raw array of all historical payroll records
           setFinancials(pays.map(p => ({
-            id: p.empId._id, 
+            _id: p._id, // Original Record ID for API calls
+            id: p.empId._id, // Employee ID for lookup
             month: p.month, 
             basic: p.basic, 
             hra: p.hra, 

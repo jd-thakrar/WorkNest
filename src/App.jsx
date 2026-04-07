@@ -1,4 +1,5 @@
 import React from "react";
+import { Toaster } from "react-hot-toast";
 import {
   BrowserRouter as Router,
   Routes,
@@ -51,6 +52,7 @@ function App() {
     <AuthProvider>
       <ThemeProvider>
         <GlobalProvider>
+        <Toaster position="top-center" reverseOrder={false} />
         <Router>
           <Routes>
             {/* Marketing/Client Routes */}

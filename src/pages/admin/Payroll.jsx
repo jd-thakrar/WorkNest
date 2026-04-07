@@ -12,6 +12,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useGlobal } from '../../context/GlobalContext.jsx';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { API_URL } from '../../config';
+import toast from 'react-hot-toast';
 
 // ─── MASTER DUMMY DATA (Now in GlobalContext) ──────────────────────────────────
 
@@ -267,10 +268,13 @@ const Payroll = () => {
     const encodedUri = "data:text/csv;charset=utf-8," + encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `Payroll_Export_${payrollStatus.cycle.replace(' ', '_')}.csv`);
+    link.setAttribute("download", `Payroll_Export_${activeCycle.replace(' ', '_')}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+
+    // Dynamic Feedback
+    toast.success('Payroll inventory exported to CSV');
   };
 
   return (
@@ -317,7 +321,30 @@ const Payroll = () => {
                {isRunning ? 'Calculating...' : 'Run Payroll'}
             </button>
             <button 
-               onClick={() => lockPayroll(!payrollStatus.isLocked)}
+               onClick={async () => {
+                 const newLockState = !payrollStatus.isLocked;
+                 try {
+                   // 1. Update Persistent State on Backend
+                   await fetch(`${API_URL}/settings`, {
+                     method: 'PUT',
+                     headers: { 
+                       'Content-Type': 'application/json',
+                       'Authorization': `Bearer ${user.token}` 
+                     },
+                     body: JSON.stringify({ payrollLocked: newLockState })
+                   });
+                   
+                   // 2. Update Local Global State
+                   lockPayroll(newLockState);
+                   
+                   toast(newLockState ? 'Payroll cycle strictly locked' : 'Payroll cycle unlocked for edits', {
+                      icon: newLockState ? '🔒' : '🔓',
+                      style: { borderRadius: '16px', background: '#042f2e', color: '#fff', fontSize: '10px', fontWeight: 'bold' }
+                   });
+                 } catch (e) {
+                   toast.error('Sync connectivity issue');
+                 }
+               }}
                className={`flex items-center gap-2 px-6 py-3 rounded-[20px] text-[10px] font-black uppercase tracking-widest transition-all shadow-sm ${payrollStatus.isLocked ? 'bg-rose-50 text-rose-600 border-rose-100' : 'bg-amber-50 text-amber-600 border-amber-100'}`}
             >
                {payrollStatus.isLocked ? <Lock size={16} /> : <Unlock size={16} />}

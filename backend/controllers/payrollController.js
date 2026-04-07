@@ -1,5 +1,6 @@
 import Payroll from '../models/Payroll.js';
 import Employee from '../models/Employee.js';
+import Notification from '../models/Notification.js';
 
 export const getPayroll = async (req, res) => {
   try {
@@ -86,7 +87,17 @@ export const markPaid = async (req, res) => {
       { _id: req.params.id, company: req.user.company },
       { status: 'Paid' },
       { new: true }
-    );
+    ).populate('empId', 'firstName lastName');
+
+    if (record) {
+      await Notification.create({
+        type: 'success',
+        title: 'Salary Disbursed',
+        desc: `Salary payment for ${record.empId.firstName} ${record.empId.lastName} (Cycle: ${record.month}) has been successfully processed.`,
+        userId: req.user._id
+      });
+    }
+
     res.json(record);
   } catch (error) {
     res.status(400).json({ message: error.message });

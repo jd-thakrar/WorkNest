@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { API_URL } from "../../config";
+import toast from "react-hot-toast";
 
 // ─── HELPER: AVATAR STACK ─────────────────────────────────────────────────────
 const AvatarStack = ({ members = [], max = 4, className = "" }) => {
@@ -240,6 +241,12 @@ const AddTeamModal = ({ onClose, onAdd, allEmployees, teamToEdit }) => {
       const data = await response.json();
       if (response.ok) {
         onAdd(data);
+        
+        toast.success(teamToEdit ? 'Team configuration updated' : 'New unit activated', {
+          icon: teamToEdit ? '⚙️' : '🏘️',
+          style: { borderRadius: '16px', background: '#042f2e', color: '#fff', fontSize: '10px', fontWeight: 'bold' }
+        });
+
         onClose();
       } else {
         alert(data.message || "Failed to save team");
