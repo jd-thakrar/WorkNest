@@ -5,6 +5,9 @@ import dotenv from 'dotenv';
 import authRoutes from './routes/authRoutes.js';
 import employeeRoutes from './routes/employeeRoutes.js';
 import teamRoutes from './routes/teamRoutes.js';
+import taskRoutes from './routes/taskRoutes.js';
+import attendanceRoutes from './routes/attendanceRoutes.js';
+import payrollRoutes from './routes/payrollRoutes.js';
 
 dotenv.config();
 
@@ -22,6 +25,9 @@ app.use(express.json());
 app.use('/api/auth', authRoutes);
 app.use('/api/employees', employeeRoutes);
 app.use('/api/teams', teamRoutes);
+app.use('/api/tasks', taskRoutes);
+app.use('/api/attendance', attendanceRoutes);
+app.use('/api/payroll', payrollRoutes);
 
 app.get('/', (req, res) => {
   res.send('API is running...');

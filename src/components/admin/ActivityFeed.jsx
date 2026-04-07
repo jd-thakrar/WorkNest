@@ -1,14 +1,45 @@
 import React from "react";
 import { UserPlus, CheckCircle2, Layout, Wallet, CalendarDays, ArrowRight } from "lucide-react";
+import { useGlobal } from "../../context/GlobalContext.jsx";
 
 const ActivityFeed = () => {
-  const activities = [
-    { type: 'task', text: 'Task Complete: Adi Thakrar finished "Login Auth API"', time: '12m ago', icon: CheckCircle2, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-    { type: 'payroll', text: 'Payroll Sync: ?250k Batch disbursed to 10 employees', time: '45m ago', icon: Wallet, color: 'text-[#042f2e]', bg: 'bg-gray-100' },
-    { type: 'employee', text: 'Entry Log: Jeet D. checked in at 08:45 AM (On Time)', time: '2h ago', icon: UserPlus, color: 'text-teal-600', bg: 'bg-teal-50' },
-    { type: 'task', text: 'Priority Shift: Chirag P. moved "DB Schema" to In-Progress', time: '4h ago', icon: Layout, color: 'text-amber-600', bg: 'bg-amber-50' },
-    { type: 'leave', text: 'System Alert: 3 Tasks remain due before Midnight', time: '5h ago', icon: CalendarDays, color: 'text-rose-600', bg: 'bg-rose-50' },
-  ];
+  const { tasks, attendance, financials } = useGlobal();
+
+  // Generate activities dynamically based on exact database records
+  const activities = React.useMemo(() => {
+     const acts = [];
+     
+     // Highest priority tasks pending
+     const pending = tasks.filter(t => t.status !== 'Completed').sort((a,b) => new Date(a.endDate) - new Date(b.endDate)).slice(0,2);
+     pending.forEach(t => {
+        acts.push({ type: 'task', text: `Priority Shift: "${t.name}" added to ${t.status}`, time: 'Recent', icon: Layout, color: 'text-amber-600', bg: 'bg-amber-50', ts: new Date(t.endDate) });
+     });
+
+     // Completed tasks
+     const completed = tasks.filter(t => t.status === 'Completed').slice(-2);
+     completed.forEach(t => {
+        acts.push({ type: 'task', text: `Task Complete: "${t.name}" has been finished`, time: 'Recent', icon: CheckCircle2, color: 'text-emerald-600', bg: 'bg-emerald-50', ts: new Date(t.startDate) });
+     });
+
+     // Check ins today
+     const today = new Date().toISOString().split('T')[0];
+     const atts = attendance.filter(a => a.date === today && a.checkIn).slice(-2);
+     atts.forEach(a => {
+        acts.push({ type: 'employee', text: `Entry Log: Clocked in at ${a.checkIn}`, time: 'Today', icon: UserPlus, color: 'text-teal-600', bg: 'bg-teal-50', ts: new Date() });
+     });
+
+     // Payroll
+     const disbursed = Object.keys(financials).length;
+     if (disbursed > 0) {
+        acts.push({ type: 'payroll', text: `Payroll Sync: Generating batches for ${disbursed} accounts`, time: 'System', icon: Wallet, color: 'text-[#042f2e]', bg: 'bg-gray-100', ts: new Date() });
+     }
+
+     if(acts.length === 0) {
+       acts.push({ type: 'system', text: 'System standing by...', time: 'Now', icon: CalendarDays, color: 'text-gray-400', bg: 'bg-gray-50', ts: new Date() });
+     }
+
+     return acts;
+  }, [tasks, attendance, financials]);
 
   return (
     <div className="space-y-6">

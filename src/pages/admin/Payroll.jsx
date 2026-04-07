@@ -10,6 +10,8 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGlobal } from '../../context/GlobalContext.jsx';
+import { useAuth } from '../../context/AuthContext.jsx';
+import { API_URL } from '../../config';
 
 // ─── MASTER DUMMY DATA (Now in GlobalContext) ──────────────────────────────────
 
@@ -18,31 +20,47 @@ import { useGlobal } from '../../context/GlobalContext.jsx';
 const formatCurr = (val) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(val);
 
 const calcPayrollRow = (empId, employees, financials, daysInMonth = 30) => {
-  const f = financials[empId];
   const emp = employees.find(e => e.id === empId);
-  if (!f || !emp) return null;
+  if (!emp) return null;
+
+  const isDraft = !financials.find(fin => fin.id === empId && fin.month === (window.currentPayrollCycle || 'March 2026'));
+  const f = financials.find(fin => fin.id === empId && fin.month === (window.currentPayrollCycle || 'March 2026')) || {
+    basic: emp.type === 'Freelancer' ? emp.baseSalary : emp.baseSalary,
+    hra: emp.type === 'Freelancer' ? 0 : emp.hraAmount,
+    allowances: emp.type === 'Freelancer' ? 0 : emp.totalAllowances,
+    perqs: [],
+    lwp: 0,
+    tds: false,
+    loan: null
+  };
   
   // Earnings
   const perqTotal = (f.perqs || []).reduce((acc, curr) => acc + (curr.mode === 'fixed' ? curr.value : (f.basic * curr.value / 100)), 0);
   const gross = f.basic + f.hra + f.allowances + perqTotal;
   
   // Deductions
-  const pf = f.basic * 0.12;
-  const pt = 200;
+  const pf = (emp.type === 'Freelancer' || !emp.pfEnabled) ? 0 : (f.basic * (emp.pfEmployee || 12) / 100);
+  const pt = (emp.type === 'Freelancer' || !emp.profTax) ? 0 : 200;
   const loanDeduct = f.loan?.active ? f.loan.emi : 0;
   const lwpDeduct = (gross / daysInMonth) * (f.lwp || 0);
   
   // TDS Calculation (Simplified Slab)
   let tds = 0;
-  if (f.tds) {
-    const annualTaxable = (gross * 12) - (pf * 12) - 50000; // 50k Standard Deduction
-    if (annualTaxable > 1500000) tds = annualTaxable * 0.25 / 12;
-    else if (annualTaxable > 1000000) tds = annualTaxable * 0.20 / 12;
-    else if (annualTaxable > 700000) tds = annualTaxable * 0.10 / 12;
-    else tds = annualTaxable * 0.05 / 12;
+  if (emp.tds) {
+    if (emp.type === 'Freelancer') {
+      tds = gross * 0.10; // Flat 10% TDS for contractors
+    } else {
+      const annualTaxable = (gross * 12) - (pf * 12) - 50000; // 50k Standard Deduction
+      if (annualTaxable > 1500000) tds = annualTaxable * 0.25 / 12;
+      else if (annualTaxable > 1000000) tds = annualTaxable * 0.20 / 12;
+      else if (annualTaxable > 700000) tds = annualTaxable * 0.10 / 12;
+      else tds = annualTaxable * 0.05 / 12;
+      if (tds < 0) tds = 0;
+    }
   }
 
-  const deductions = pf + pt + loanDeduct + lwpDeduct + tds;
+  const otherDeductions = emp.totalOtherDeduct || 0;
+  const deductions = pf + pt + loanDeduct + lwpDeduct + tds + otherDeductions;
   const net = gross - deductions;
 
   return {
@@ -58,7 +76,7 @@ const calcPayrollRow = (empId, employees, financials, daysInMonth = 30) => {
     statutory: pf + pt + tds,
     lwpDeduct,
     net,
-    status: f.lwp > 0 ? 'Hold' : 'Calculated'
+    status: isDraft ? 'Draft' : (f.status === 'Paid' ? 'Paid' : (f.lwp > 0 ? 'Hold' : 'Calculated'))
   };
 };
 
@@ -191,14 +209,20 @@ const PayrollDrawer = ({ data, onClose }) => {
 // ─── MAIN PAGE ─────────────────────────────────────────────────────────────
 
 const Payroll = () => {
-  const { employees, financials, payrollStatus, lockPayroll } = useGlobal();
+  const { user } = useAuth();
+  const { employees, financials, payrollStatus, lockPayroll, refreshGlobal } = useGlobal();
   const [activeCycle, setActiveCycle] = useState(payrollStatus.cycle);
   const [search, setSearch] = useState('');
   const [selectedEmp, setSelectedEmp] = useState(null);
   const [isRunning, setIsRunning] = useState(false);
 
   // Generate rows
-  const rows = useMemo(() => employees.map(e => calcPayrollRow(e.id, employees, financials)).filter(Boolean), [employees, financials]);
+  const rows = useMemo(() => {
+    window.currentPayrollCycle = activeCycle;
+    return employees.map(e => calcPayrollRow(e.id, employees, financials)).filter(Boolean);
+  }, [employees, financials, activeCycle]);
+  
+  const processedCount = useMemo(() => rows.filter(r => r.status !== 'Draft').length, [rows]);
   
   const filteredRows = rows.filter(r => r.emp.name.toLowerCase().includes(search.toLowerCase()));
 
@@ -206,11 +230,47 @@ const Payroll = () => {
     gross: rows.reduce((acc, r) => acc + r.gross, 0),
     deducts: rows.reduce((acc, r) => acc + r.deductions, 0),
     net: rows.reduce((acc, r) => acc + r.net, 0),
+    paid: rows.reduce((acc, r) => acc + (r.financials?.status === 'Paid' ? r.net : 0), 0),
   }), [rows]);
 
-  const handleRunPayroll = () => {
+  const handleRunPayroll = async () => {
     setIsRunning(true);
-    setTimeout(() => setIsRunning(false), 2000);
+    try {
+      await fetch(`${API_URL}/payroll`, {
+         method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${user.token}` },
+         body: JSON.stringify({ month: activeCycle })
+      });
+      if (refreshGlobal) await refreshGlobal();
+    } catch(err) { console.error(err); }
+    setIsRunning(false);
+  };
+
+  const handleExportCSV = () => {
+    if (rows.length === 0) {
+      alert("No active payroll data to export.");
+      return;
+    }
+    const headers = ["Employee ID", "Name", "Role", "Type", "Gross Pay", "Total Deductions", "Net Pay", "Internal Status", "Live Status"];
+    const csvRows = rows.map(r => [
+      r.emp.employeeId || "N/A",
+      `"${r.emp.name}"`,
+      `"${r.emp.role}"`,
+      r.emp.type,
+      r.gross,
+      r.deductions,
+      r.net,
+      r.financials?.status || 'Draft',
+      r.status
+    ].join(","));
+
+    const csvContent = headers.join(",") + "\n" + csvRows.join("\n");
+    const encodedUri = "data:text/csv;charset=utf-8," + encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `Payroll_Export_${payrollStatus.cycle.replace(' ', '_')}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   return (
@@ -263,7 +323,11 @@ const Payroll = () => {
                {payrollStatus.isLocked ? <Lock size={16} /> : <Unlock size={16} />}
                {payrollStatus.isLocked ? 'Payroll Locked' : 'Lock Payroll'}
             </button>
-            <button className="flex items-center justify-center w-12 h-12 bg-[#042f2e] text-white rounded-[20px] hover:bg-teal-900 transition-all shadow-lg shadow-teal-900/10">
+            <button 
+               onClick={handleExportCSV}
+               title="Download CSV Export"
+               className="flex items-center justify-center w-12 h-12 bg-[#042f2e] text-white rounded-[20px] hover:bg-teal-900 transition-all shadow-lg shadow-teal-900/10"
+            >
                <Download size={20} />
             </button>
           </div>
@@ -271,10 +335,10 @@ const Payroll = () => {
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-           <StatCard type="processed" value={`${rows.length}/10`} />
+           <StatCard type="processed" value={`${rows.filter(r => r.financials?.status === 'Paid').length}/${employees.length}`} />
            <StatCard type="totalNet"  value={formatCurr(totals.net)} />
-           <StatCard type="paid"      value={formatCurr(totals.net / 2)} />
-           <StatCard type="remaining" value={formatCurr(totals.net / 2)} />
+           <StatCard type="paid"      value={formatCurr(totals.paid)} />
+           <StatCard type="remaining" value={formatCurr(totals.net - totals.paid)} />
         </div>
 
         {/* Main Table */}
@@ -348,16 +412,16 @@ const Payroll = () => {
                          </td>
                          <td className="px-6 py-5">
                             <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${
-                               row.status === 'Calculated' ? 'bg-teal-50 text-teal-600 border-teal-100' : 
+                               row.status === 'Calculated' || row.status === 'Paid' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 
                                row.status === 'Hold' ? 'bg-amber-50 text-amber-600 border-amber-100' :
                                'bg-emerald-50 text-emerald-600 border-emerald-100'
                             }`}>
                                <span className={`w-1.5 h-1.5 rounded-full ${
-                                  row.status === 'Calculated' ? 'bg-teal-500' :
+                                  row.status === 'Calculated' || row.status === 'Paid' ? 'bg-emerald-500' :
                                   row.status === 'Hold' ? 'bg-amber-500' :
                                   'bg-emerald-500'
                                }`} />
-                               {payrollStatus.isLocked ? 'Locked' : row.status}
+                               {payrollStatus.isLocked && row.status !== 'Paid' ? 'Locked' : row.status}
                             </span>
                          </td>
                          <td className="px-8 py-5 text-right">
@@ -393,8 +457,32 @@ const Payroll = () => {
               </div>
            </div>
            <div className="flex items-center gap-4">
-              <button disabled={isRunning} className="px-8 py-3 bg-[#042f2e] text-white rounded-[20px] text-[10px] font-black uppercase tracking-widest hover:bg-teal-900 transition-all shadow-lg shadow-teal-900/10">
-                 Finalize & Pay
+              <button 
+                onClick={async () => {
+                  try {
+                    // Gatecheck: ensure there are no drafts
+                    if (rows.some(r => r.status === 'Draft')) {
+                       alert("You must execute 'Run Payroll' at the top right first to commit these Drafts to the database before disbursing funds.");
+                       return;
+                    }
+                    
+                    setIsRunning(true);
+                    const unpaidRows = rows.filter(r => r.financials?.status !== 'Paid');
+                    await Promise.all(unpaidRows.map(r => 
+                       fetch(`${API_URL}/payroll/${r.financials._id}/pay`, {
+                         method: "PUT", headers: { "Authorization": `Bearer ${user.token}` }
+                       })
+                    ));
+                    if(refreshGlobal) refreshGlobal();
+                    alert("Payroll Disbursed Successfully!");
+                  } catch (e) { console.error(e); } finally {
+                    setIsRunning(false);
+                  }
+                }}
+                disabled={isRunning || rows.length === 0 || rows.every(r => r.financials?.status === 'Paid')} 
+                className="px-8 py-3 bg-[#042f2e] text-white rounded-[20px] text-[10px] font-black uppercase tracking-widest hover:bg-teal-900 transition-all shadow-lg shadow-teal-900/10 disabled:opacity-50"
+              >
+                 {rows.every(r => r.financials?.status === 'Paid') && rows.length > 0 ? "Disbursed Fully" : "Finalize & Pay"}
               </button>
            </div>
         </div>

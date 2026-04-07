@@ -20,6 +20,8 @@ import {
   ArrowUpDown,
 } from "lucide-react";
 import { useGlobal } from "../../context/GlobalContext.jsx";
+import { useAuth } from "../../context/AuthContext.jsx";
+import { API_URL } from "../../config";
 
 // ─── MASTER DATA ──────────────────────────────────────────────────────────────
 const CATEGORIES = [
@@ -164,10 +166,13 @@ const TaskDetailPanel = ({ task, allTeams, onClose, onEdit, onDelete }) => {
 
 const MODAL_STEPS = [{ id: 1, label: "Info" }, { id: 2, label: "Team" }, { id: 3, label: "Members" }, { id: 4, label: "Timeline" }, { id: 5, label: "Category" }, { id: 6, label: "Review" }];
 
-const AddTaskModal = ({ onClose, onAdd, allTeams }) => {
+const AddTaskModal = ({ onClose, onAdd, allTeams, initialData = null, allTasks = [] }) => {
   const [step, setStep] = useState(1);
   const [errors, setErrors] = useState({});
-  const [form, setForm] = useState({ name: "", description: "", priority: "Medium", teamId: "", memberIds: [], startDate: "", endDate: "", category: "" });
+  const [form, setForm] = useState(initialData ? 
+    { id: initialData.id, name: initialData.name, description: initialData.description, priority: initialData.priority, teamId: initialData.teamId, memberIds: initialData.members, startDate: initialData.startDate, endDate: initialData.endDate, category: initialData.category } : 
+    { name: "", description: "", priority: "Medium", teamId: "", memberIds: [], startDate: "", endDate: "", category: "" }
+  );
 
   const selectedTeam = allTeams.find((t) => t.id === form.teamId);
   const pct = Math.round(((step - 1) / (MODAL_STEPS.length - 1)) * 100);
@@ -205,9 +210,17 @@ const AddTaskModal = ({ onClose, onAdd, allTeams }) => {
   };
 
   const handleSubmit = () => {
-    onAdd({ ...form, teamName: selectedTeam?.name || "", status: "Pending" });
+    onAdd({ ...form, id: initialData?.id, teamName: selectedTeam?.name || "", status: initialData?.status || "Pending" });
     onClose();
   };
+
+  const overlapWarning = React.useMemo(() => {
+     if (!form.startDate || !form.endDate || form.memberIds.length === 0) return 0;
+     const intersecting = allTasks.filter(t => t.id !== initialData?.id && t.status !== 'Completed' && t.startDate <= form.endDate && t.endDate >= form.startDate);
+     let count = 0;
+     form.memberIds.forEach(mId => { if (intersecting.some(t => t.members.includes(mId))) count++; });
+     return count;
+  }, [allTasks, form, initialData]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
@@ -216,7 +229,7 @@ const AddTaskModal = ({ onClose, onAdd, allTeams }) => {
         <div className="px-8 pt-8 pb-4 shrink-0">
           <div className="flex items-center justify-between mb-5">
             <div>
-              <h2 style={{ fontFamily: "'Outfit', sans-serif" }} className="text-2xl font-bold text-[#042f2e] tracking-tight">Add New Task</h2>
+              <h2 style={{ fontFamily: "'Outfit', sans-serif" }} className="text-2xl font-bold text-[#042f2e] tracking-tight">{initialData ? "Edit Task" : "Add New Task"}</h2>
               <p className="text-xs text-gray-400 font-medium mt-1">Step {step} of {MODAL_STEPS.length} — {MODAL_STEPS[step - 1].label}</p>
             </div>
             <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-all"><X size={20} /></button>
@@ -261,10 +274,17 @@ const AddTaskModal = ({ onClose, onAdd, allTeams }) => {
               <div className="flex items-center justify-between"><p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{selectedTeam?.name} Members</p><button type="button" onClick={selectAll} className="text-[9px] font-bold uppercase tracking-widest text-teal-600 hover:text-teal-700 transition-colors">{selectedTeam && selectedTeam.members.every((m) => form.memberIds.includes(m.id)) ? "Deselect All" : "Select All"}</button></div>
               {selectedTeam?.members.map((member) => {
                 const selected = form.memberIds.includes(member.id);
+                const activeCount = allTasks.filter(t => t.id !== initialData?.id && t.status !== 'Completed' && t.members.includes(member.id)).length;
                 return (
                   <button key={member.id} type="button" onClick={() => toggleMember(member.id)} className={`w-full flex items-center gap-3 p-3 rounded-2xl border-2 transition-all ${selected ? "border-teal-500 bg-teal-50/40" : "border-gray-100 bg-gray-50/30 hover:border-gray-200"}`}>
                     <div className="w-9 h-9 rounded-xl overflow-hidden border-2 border-white shrink-0 shadow-sm"><img src={member.avatar} alt={member.name} /></div>
-                    <div className="text-left flex-1"><p className="text-sm font-bold text-[#042f2e]">{member.name}</p><p className="text-[10px] text-gray-400 font-medium">{member.role}</p></div>
+                    <div className="text-left flex-1">
+                       <p className="text-sm font-bold text-[#042f2e]">{member.name}</p>
+                       <div className="flex items-center gap-2">
+                           <p className="text-[10px] text-gray-400 font-medium">{member.role}</p>
+                           {activeCount > 0 && <span className="text-[8px] font-bold bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded flex items-center gap-1"><AlertCircle size={8}/> {activeCount} Active Tasks</span>}
+                       </div>
+                    </div>
                     <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${selected ? "bg-teal-500 border-teal-500" : "border-gray-300"}`}>{selected && <Check size={10} strokeWidth={3} className="text-white" />}</div>
                   </button>
                 );
@@ -294,7 +314,12 @@ const AddTaskModal = ({ onClose, onAdd, allTeams }) => {
           )}
           {step === 6 && (
             <div className="space-y-4">
-              <div className="bg-gray-50 rounded-[24px] border border-gray-100 p-5">
+              <div className="bg-gray-50 rounded-[24px] border border-gray-100 p-5 relative">
+                {overlapWarning > 0 && (
+                   <div className="absolute -top-3 right-5 bg-amber-100 text-amber-700 px-3 py-1.5 rounded-lg text-[9px] font-black tracking-widest uppercase flex items-center gap-1 shadow-sm border border-amber-200">
+                      <AlertCircle size={10} /> {overlapWarning} Member{overlapWarning > 1 ? 's' : ''} Overlapping
+                   </div>
+                )}
                 <p className="text-[9px] font-bold uppercase tracking-widest text-gray-300 mb-4">Review Summary</p>
                 <div className="space-y-2">
                   <p className="text-sm font-bold text-[#042f2e]">{form.name}</p>
@@ -313,7 +338,7 @@ const AddTaskModal = ({ onClose, onAdd, allTeams }) => {
         <div className="px-8 py-6 border-t border-gray-100 flex items-center justify-between gap-4 shrink-0">
           <button onClick={prev} className={`p-2 text-gray-400 ${step === 1 ? 'invisible' : ''}`}><ChevronLeft /></button>
           <div className="flex gap-2">
-             {step < 6 ? ( <button onClick={next} className="btn-primary">Next <ChevronRight size={16} /></button> ) : ( <button onClick={handleSubmit} className="btn-primary bg-teal-600!">Confirm & Create</button> )}
+             {step < 6 ? ( <button onClick={next} className="btn-primary">Next <ChevronRight size={16} /></button> ) : ( <button onClick={handleSubmit} className="btn-primary bg-teal-600!">{initialData ? "Save Changes" : "Confirm & Create"}</button> )}
           </div>
         </div>
       </div>
@@ -322,16 +347,22 @@ const AddTaskModal = ({ onClose, onAdd, allTeams }) => {
 };
 
 const Tasks = () => {
-  const { tasks, setTasks, teamsWithMembers } = useGlobal();
+  const { user } = useAuth();
+  const { tasks, setTasks, teamsWithMembers, refreshGlobal } = useGlobal();
   const [view, setView] = useState("table");
   const [showModal, setShowModal] = useState(false);
   const [detailTask, setDetailTask] = useState(null);
+  const [editingTask, setEditingTask] = useState(null);
   const [search, setSearch] = useState("");
   const [filterPriority, setFilterPriority] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
   const [filterTeam, setFilterTeam] = useState("");
   const [sortField, setSortField] = useState("");
   const [sortDir, setSortDir] = useState("asc");
+
+  React.useEffect(() => {
+    if (refreshGlobal) refreshGlobal();
+  }, []);
 
   const filtered = useMemo(() => {
     let list = tasks.filter((t) => {
@@ -356,10 +387,52 @@ const Tasks = () => {
     else { setSortField(field); setSortDir("asc"); }
   };
 
-  const handleAdd = (task) => setTasks((prev) => [{ id: Date.now(), ...task }, ...prev]);
-  const handleDelete = (id) => setTasks((prev) => prev.filter((t) => t.id !== id));
-  const handleStatusChange = (id, newStatus) =>
-    setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, status: newStatus } : t)));
+  const handleEditInit = (t) => {
+    setDetailTask(null);
+    setEditingTask(t);
+    setShowModal(true);
+  };
+
+  const handleAdd = async (task) => {
+     try {
+        const isEdit = !!task.id;
+        const method = isEdit ? "PUT" : "POST";
+        const url = isEdit ? `${API_URL}/tasks/${task.id}` : `${API_URL}/tasks`;
+
+        const res = await fetch(url, {
+           method,
+           headers: { "Content-Type": "application/json", "Authorization": `Bearer ${user.token}` },
+           body: JSON.stringify({ ...task, members: task.memberIds })
+        });
+        if (res.ok) {
+           const saved = await res.json();
+           const mapped = {
+              id: saved._id, name: saved.name, description: saved.description, priority: saved.priority,
+              teamId: saved.teamId?._id, teamName: saved.teamId?.name, 
+              members: saved.members.map(m => m._id),
+              startDate: saved.startDate?.split('T')[0], endDate: saved.endDate?.split('T')[0],
+              status: saved.status, category: saved.category
+           };
+           setTasks((prev) => isEdit ? prev.map(t => t.id === mapped.id ? mapped : t) : [mapped, ...prev]);
+        }
+     } catch (err) { console.error(err); }
+  };
+  const handleDelete = async (id) => {
+     try {
+         const res = await fetch(`${API_URL}/tasks/${id}`, { method: "DELETE", headers: { "Authorization": `Bearer ${user.token}` }});
+         if (res.ok) setTasks((prev) => prev.filter((t) => t.id !== id));
+     } catch(err) { console.error(err); }
+  };
+  const handleStatusChange = async (id, newStatus) => {
+     try {
+         const res = await fetch(`${API_URL}/tasks/${id}`, { 
+           method: "PUT", 
+           headers: { "Content-Type": "application/json", "Authorization": `Bearer ${user.token}` },
+           body: JSON.stringify({ status: newStatus })
+         });
+         if (res.ok) setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, status: newStatus } : t)));
+     } catch(err) { console.error(err); }
+  };
 
   return (
     <AdminLayout title="Tasks">
@@ -422,9 +495,9 @@ const Tasks = () => {
           <KanbanBoard tasks={filtered} allTeams={teamsWithMembers} onStatusChange={handleStatusChange} onTaskClick={setDetailTask} onAddTask={() => setShowModal(true)} />
         )}
       </div>
-      {showModal && <AddTaskModal onClose={() => setShowModal(false)} onAdd={handleAdd} allTeams={teamsWithMembers} />}
+      {showModal && <AddTaskModal onClose={() => { setShowModal(false); setEditingTask(null); }} onAdd={handleAdd} allTeams={teamsWithMembers} initialData={editingTask} allTasks={tasks} />}
       {detailTask && (
-        <TaskDetailPanel task={detailTask} allTeams={teamsWithMembers} onClose={() => setDetailTask(null)} onEdit={() => {}} onDelete={handleDelete} />
+        <TaskDetailPanel task={detailTask} allTeams={teamsWithMembers} onClose={() => setDetailTask(null)} onEdit={handleEditInit} onDelete={handleDelete} />
       )}
     </AdminLayout>
   );

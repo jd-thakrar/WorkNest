@@ -21,6 +21,8 @@ import {
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useGlobal } from "../../context/GlobalContext.jsx";
+import { useAuth } from "../../context/AuthContext.jsx";
+import { API_URL } from "../../config";
 
 // ─── UTILITIES ───────────────────────────────────────────────────────────────
 const calculateHours = (inTime, outTime, breakMins) => {
@@ -352,6 +354,7 @@ const LeaveRequestsTable = ({ data, employees, onApprove, onReject }) => {
 // ─── MAIN PAGE ─────────────────────────────────────────────────────────────
 
 const Attendance = () => {
+  const { user } = useAuth();
   const {
     employees,
     attendance,
@@ -376,24 +379,26 @@ const Attendance = () => {
     [attendance],
   );
 
-  const handleApprove = (id) => {
-    setLeaveRequests((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, status: "Approved" } : r)),
-    );
-    const req = leaveRequests.find((r) => r.id === id);
-    if (req) {
-      setAttendance((prev) =>
-        prev.map((a) =>
-          a.empId === req.empId ? { ...a, status: "On Leave" } : a,
-        ),
-      );
-    }
+  const handleApprove = async (id) => {
+    try {
+      await fetch(`${API_URL}/attendance/leaves/${id}`, {
+         method: "PUT", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${user.token}` },
+         body: JSON.stringify({ status: "Approved" })
+      });
+      setLeaveRequests((prev) => prev.map((r) => (r.id === id ? { ...r, status: "Approved" } : r)));
+      const req = leaveRequests.find((r) => r.id === id);
+      if (req) setAttendance((prev) => prev.map((a) => a.empId === req.empId ? { ...a, status: "On Leave" } : a));
+    } catch(err) { console.error(err); }
   };
 
-  const handleReject = (id) => {
-    setLeaveRequests((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, status: "Rejected" } : r)),
-    );
+  const handleReject = async (id) => {
+    try {
+      await fetch(`${API_URL}/attendance/leaves/${id}`, {
+         method: "PUT", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${user.token}` },
+         body: JSON.stringify({ status: "Rejected" })
+      });
+      setLeaveRequests((prev) => prev.map((r) => (r.id === id ? { ...r, status: "Rejected" } : r)));
+    } catch (err){ console.error(err); }
   };
 
   const activeData =

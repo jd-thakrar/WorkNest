@@ -22,77 +22,88 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useGlobal } from "../../context/GlobalContext.jsx";
 
-// ----------------------------------------------------------------------
-// MASTER DUMMY DATA (Micro-Scale: 10 Employees / 10 Tasks)
-// ----------------------------------------------------------------------
-const DASHBOARD_DATA = {
-  stats: {
-    totalEmployees: "10",
-    activeTasks: "5", // (3 In Progress + 2 Pending)
-    tasksDueToday: "5",
-    attendanceRate: "90%",
-    payrollPending: "₹250k",
-  },
-  lineChart: [
-    { day: "Mar 05", v: 2 },
-    { day: "Mar 06", v: 4 },
-    { day: "Mar 07", v: 3 },
-    { day: "Mar 08", v: 5 },
-    { day: "Mar 09", v: 4 },
-    { day: "Mar 10", v: 6 },
-    { day: "Mar 11", v: 8 },
-    { day: "Mar 12", v: 5 },
-    { day: "Mar 13", v: 7 },
-    { day: "Today", v: 5 }, // Matches 5 Completed tasks
-  ],
-  attendance: [
-    { d: "Mar 05", p: 9, l: 1, a: 0 },
-    { d: "Mar 06", p: 8, l: 1, a: 1 },
-    { d: "Mar 07", p: 10, l: 0, a: 0 },
-    { d: "Mar 08", p: 7, l: 2, a: 1 },
-    { d: "Mar 09", p: 9, l: 1, a: 0 },
-    { d: "Mar 10", p: 8, l: 1, a: 1 },
-    { d: "Mar 11", p: 10, l: 0, a: 0 },
-    { d: "Mar 12", p: 9, l: 1, a: 0 },
-    { d: "Mar 13", p: 8, l: 1, a: 1 },
-    { d: "Today", p: 8, l: 1, a: 1 },
-  ],
-  payroll: {
-    total: "₹468,000",
-    disbursed: "₹234,000",
-    pending: "₹234,000",
-    draft: "₹0",
-    percents: { disbursed: 50, pending: 50, draft: 0 },
-  },
-  topPerformers: [
-    { name: "Adi Thakrar", dept: "Product", score: 8, p: "80%" },
-    { name: "Chirag Parekh", dept: "Engineering", score: 6, p: "60%" },
-    { name: "Jeet D.", dept: "Design", score: 5, p: "50%" },
-  ],
-};
+// Dynamic Dashboard Data logic calculated directly inside the component
 
 const Dashboard = () => {
-  const { employees, tasks, attendance, payrollStatus } = useGlobal();
+  const { employees, tasks, attendance, financials, payrollStatus } = useGlobal();
   const navigate = useNavigate();
   const [activePoint, setActivePoint] = useState(null);
 
+  // Timezone-safe local date string builder (YYYY-MM-DD)
+  const getLocalDate = (dateObj) => 
+     `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
+
+  // Derive dynamic metrics replacing dummy data
+  const DASHBOARD_DATA = React.useMemo(() => {
+     // Line Chart for past 10 days
+     const lineChart = [];
+     for(let i=9; i>=0; i--) {
+        const d = new Date(); d.setDate(d.getDate() - i);
+        const dayStr = i === 0 ? "Today" : d.toLocaleDateString('en-US', { month: 'short', day: '2-digit' });
+        const dayIso = getLocalDate(d);
+        const v = tasks.filter(t => t.endDate === dayIso || t.startDate === dayIso).length;
+        lineChart.push({ day: dayStr, v });
+     }
+     
+     // Attendance Pulse
+     const attChart = [];
+     for(let i=9; i>=0; i--) {
+        const d = new Date(); d.setDate(d.getDate() - i);
+        const dayStr = i === 0 ? "Today" : d.toLocaleDateString('en-US', { month: 'short', day: '2-digit' });
+        const dayIso = getLocalDate(d);
+        const dayAtts = attendance.filter(a => a.date === dayIso);
+        attChart.push({ 
+           d: dayStr, 
+           p: dayAtts.filter(a => a.status === 'Present').length,
+           l: dayAtts.filter(a => a.status === 'Late').length,
+           a: dayAtts.filter(a => a.status === 'Absent').length
+        });
+     }
+
+     const totalNet = financials.filter(f => f.month === payrollStatus.cycle).reduce((acc, f) => acc + (f.net || 0), 0);
+     const disbursedNet = financials.filter(f => f.month === payrollStatus.cycle).reduce((acc, f) => acc + (f.status === 'Paid' ? (f.net || 0) : 0), 0);
+     const pendingNet = totalNet - disbursedNet;
+     
+     const payroll = {
+        total: `₹${totalNet.toLocaleString()}`,
+        disbursed: `₹${disbursedNet.toLocaleString()}`,
+        pending: `₹${pendingNet.toLocaleString()}`,
+        draft: "₹0",
+        percents: { 
+           disbursed: totalNet > 0 ? (disbursedNet / totalNet) * 100 : 0, 
+           pending: totalNet > 0 ? (pendingNet / totalNet) * 100 : 0, 
+           draft: 0 
+        }
+     };
+
+     const counts = {};
+     tasks.forEach(t => {
+       if ((t.status === 'Completed' || t.status === 'In Progress') && t.members) {
+          t.members.forEach(mId => counts[mId] = (counts[mId] || 0) + 1);
+       }
+     });
+     const topPerformers = Object.entries(counts).sort((a,b) => b[1]-a[1]).slice(0,3).map(([mId, score]) => {
+         const e = employees.find(emp => emp.id === mId);
+         return { name: e?.name || "Unknown", dept: e?.dept || "Staff", score, p: `${Math.min(score * 20, 100)}%` };
+     });
+
+     return { lineChart, attendance: attChart, payroll, topPerformers };
+  }, [tasks, attendance, financials, payrollStatus, employees]);
+
   // Derived stats
   const activeTasksCount = tasks.filter((t) => t.status !== "Completed").length;
-  const completedTasksCount = tasks.filter(
-    (t) => t.status === "Completed",
-  ).length;
-  const presentToday = attendance.filter((a) => a.status === "Present").length;
+  const completedTasksCount = tasks.filter((t) => t.status === "Completed").length;
 
-  // Dynamic stats object to override local dummy data where appropriate
+  const todayIso = getLocalDate(new Date());
+  const presentToday = attendance.filter((a) => a.status === "Present" && a.date === todayIso).length;
+  const tasksDueTodayCount = tasks.filter(t => t.endDate === todayIso).length;
+
   const currentStats = {
     totalEmployees: employees.length,
     activeTasks: activeTasksCount,
     presentToday: `${presentToday}/${employees.length}`,
-    attendanceRate:
-      employees.length > 0
-        ? `${Math.round((presentToday / employees.length) * 100)}%`
-        : "0%",
-    payrollPending: payrollStatus.isLocked ? "₹0" : "₹500,000",
+    attendanceRate: employees.length > 0 ? `${Math.round((presentToday / employees.length) * 100)}%` : "0%",
+    payrollPending: DASHBOARD_DATA.payroll.pending,
   };
 
   const handleAction = (act) => {
@@ -122,7 +133,7 @@ const Dashboard = () => {
     },
     {
       label: "Tasks Due Today",
-      value: DASHBOARD_DATA.stats.tasksDueToday,
+      value: tasksDueTodayCount,
       trend: "High Priority",
       trendUp: true,
       icon: Clock,
@@ -137,9 +148,9 @@ const Dashboard = () => {
       accent: "teal",
     },
     {
-      label: "Net Payroll (MAR)",
-      value: "₹468,000",
-      trend: "Paid: ₹234k | Remaining: ₹234k",
+      label: "Net Payroll (Current)",
+      value: DASHBOARD_DATA.payroll.total,
+      trend: `Paid: ${DASHBOARD_DATA.payroll.disbursed} | Rem: ${DASHBOARD_DATA.payroll.pending}`,
       trendUp: true,
       icon: Wallet,
       accent: "rose",
