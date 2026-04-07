@@ -1,12 +1,12 @@
 import React from "react";
 import { MousePointer2, Coffee, LogOut } from "lucide-react";
 
-const TodayTimeline = () => {
+const TodayTimeline = ({ record }) => {
   const activities = [
-    { time: "09:05 AM", event: "Punch In", icon: MousePointer2, color: "text-emerald-500", bg: "bg-emerald-50" },
-    { time: "01:15 PM", event: "Break Start", icon: Coffee, color: "text-amber-500", bg: "bg-amber-50" },
-    { time: "02:00 PM", event: "Break End", icon: MousePointer2, color: "text-teal-500", bg: "bg-teal-50" },
-    { time: "--:--", event: "Punch Out", icon: LogOut, color: "text-slate-300", bg: "bg-slate-50", pending: true },
+    { time: record?.checkIn || "--:--", event: "Punch In", icon: MousePointer2, color: "text-emerald-500", bg: "bg-emerald-50" },
+    { time: "--:--", event: "Break Start", icon: Coffee, color: "text-amber-500", bg: "bg-amber-50", pending: true },
+    { time: "--:--", event: "Break End", icon: MousePointer2, color: "text-teal-500", bg: "bg-teal-50", pending: true },
+    { time: record?.checkOut || "--:--", event: "Punch Out", icon: LogOut, color: record?.checkOut ? "text-rose-500" : "text-slate-300", bg: record?.checkOut ? "bg-rose-50" : "bg-slate-50", pending: !record?.checkOut },
   ];
 
   return (

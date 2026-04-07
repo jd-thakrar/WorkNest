@@ -1,8 +1,10 @@
-import React from "react";
 import { Link } from "react-router-dom";
 import { Search, Menu, LogOut } from "lucide-react";
+import { useAuth } from "../../context/AuthContext";
 
 const Topbar = ({ collapsed, setCollapsed }) => {
+  const { user } = useAuth();
+  
   return (
     <header className="fixed top-0 left-0 right-0 h-16 border-b border-slate-200/60 bg-white/80 backdrop-blur-xl z-70 px-4 lg:px-8 flex items-center justify-between">
       {/* Left: Brand Logo */}
@@ -36,23 +38,23 @@ const Topbar = ({ collapsed, setCollapsed }) => {
 
       {/* Right Section: Profile + Actions */}
       <div className="flex items-center gap-2">
-        <button className="flex items-center gap-3 pl-2 pr-3 py-1.5 hover:bg-slate-50 rounded-2xl transition-all group">
+        <Link to="/employee/settings" className="flex items-center gap-3 pl-2 pr-3 py-1.5 hover:bg-slate-50 rounded-2xl transition-all group">
           <div className="text-right hidden sm:block">
             <div className="text-[12px] font-black text-[#042f2e] leading-none mb-1">
-              Chirag Yadav
+              {user?.name || 'Personnel'}
             </div>
             <div className="text-[9px] font-bold text-teal-600 uppercase tracking-widest leading-none">
-              EMP-120
+              {user?.company || 'Organization'}
             </div>
           </div>
           <div className="w-9 h-9 rounded-xl overflow-hidden border-2 border-white shadow-md ring-1 ring-slate-100 group-hover:ring-teal-500/30 transition-all bg-slate-50">
             <img
-              src="/founders/chirag.png"
+              src={user?.avatar || `https://ui-avatars.com/api/?name=${(user?.name || 'User').replace(' ', '+')}&background=042f2e&color=fff&bold=true`}
               alt="Profile"
-              className="w-full h-full object-cover scale-110"
+              className="w-full h-full object-cover"
             />
           </div>
-        </button>
+        </Link>
 
         <Link
           to="/login"

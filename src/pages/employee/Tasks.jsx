@@ -1,7 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, Plus, LayoutGrid, List, CheckSquare } from "lucide-react";
 import EmployeeLayout from "../../layouts/EmployeeLayout";
+import { useAuth } from "../../context/AuthContext";
+import { API_URL } from "../../config";
 
 // Components
 import TaskCard from "../../components/employee/tasks/TaskCard";
@@ -9,52 +11,38 @@ import TaskFilters from "../../components/employee/tasks/TaskFilters";
 import TaskSummaryStrip from "../../components/employee/tasks/TaskSummaryStrip";
 
 const Tasks = () => {
+  const { user } = useAuth();
+  const [tasks, setTasks] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("Active");
   const [viewMode, setViewMode] = useState("grid");
 
-  // Mocking 10 tasks as requested (5 active, 2 done, 3 overdue)
-  const dummyTasks = [
-    // Active (5)
-    ...Array.from({ length: 5 }, (_, i) => ({
-       id: i + 1,
-       title: [
-         "Finalize Revenue Projections", "Update Component Library", "Client Feedback Sync",
-         "Database Schema Migration", "API Endpoint Security Audit"
-       ][i % 5],
-       priority: i % 3 === 0 ? "High" : i % 3 === 1 ? "Medium" : "Low",
-       due: i % 2 === 0 ? "Today" : "Tomorrow",
-       status: "Active",
-       time: `${1 + i}h 15m`
-    })),
-    // Done (2)
-    ...Array.from({ length: 2 }, (_, i) => ({
-       id: i + 6,
-       title: `Completed Milestone #${i + 1}`,
-       priority: "Medium",
-       due: "Closed",
-       status: "Done",
-       time: "0h 0m"
-    })),
-    // Overdue (3)
-    ...Array.from({ length: 3 }, (_, i) => ({
-       id: i + 8,
-       title: `Overdue Request: ${['Security Patch', 'API Docs', 'Audit Log'][i]}`,
-       priority: "High",
-       due: "Overdue",
-       status: "Overdue",
-       time: "10h+"
-    }))
-  ];
+  useEffect(() => {
+    const fetchTasks = async () => {
+      try {
+        const res = await fetch(`${API_URL}/employee-self/tasks`, {
+          headers: { "Authorization": `Bearer ${user.token}` }
+        });
+        const data = await res.json();
+        if (res.ok) setTasks(data);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    if (user) fetchTasks();
+  }, [user]);
 
-  const filteredTasks = dummyTasks.filter(t => activeTab === 'All' || t.status === activeTab);
+  const filteredTasks = tasks.filter(t => activeTab === 'All' || t.status === activeTab);
 
   // Sync logical counts
   const taskCounts = {
-    all: dummyTasks.length, // 10
-    active: dummyTasks.filter(t => t.status === "Active").length, // 5
-    done: dummyTasks.filter(t => t.status === "Done").length, // 2
-    overdue: dummyTasks.filter(t => t.status === "Overdue").length, // 3
-    hours: "12h 45m" // Static for the week
+    all: tasks.length,
+    active: tasks.filter(t => t.status === "Active").length,
+    done: tasks.filter(t => t.status === "Done").length,
+    overdue: tasks.filter(t => t.status === "Overdue").length,
+    hours: "0h 0m" 
   };
 
   const containerVariants = {

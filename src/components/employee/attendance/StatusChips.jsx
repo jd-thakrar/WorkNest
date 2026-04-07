@@ -1,32 +1,37 @@
 import React from "react";
 import { Clock, CheckCircle2, AlertCircle, BarChart3 } from "lucide-react";
 
-const StatusChips = () => {
+const StatusChips = ({ history }) => {
+  const todayRecord = history?.find(r => r.date === new Date().toISOString().split('T')[0]);
+  const presentDays = history?.filter(r => r.status === 'Present').length || 0;
+  const lateDays = history?.filter(r => r.status === 'Late').length || 0;
+  const totalDays = history?.length || 0;
+
   const stats = [
     {
       label: "Check In",
-      value: "09:05 AM",
+      value: todayRecord?.checkIn || "--:--",
       icon: Clock,
       color: "text-teal-600",
-      detail: "On Time",
+      detail: todayRecord ? "Active" : "Pending",
     },
     {
       label: "Working Hr",
-      value: "06h 45m",
+      value: "00h 00m", // Placeholder for actual calc
       icon: BarChart3,
       color: "text-blue-600",
       detail: "Target: 8h",
     },
     {
       label: "Present",
-      value: "18 / 20",
+      value: `${presentDays} / ${totalDays || 30}`,
       icon: CheckCircle2,
       color: "text-emerald-600",
       detail: "Days",
     },
     {
       label: "Late Days",
-      value: "02 Days",
+      value: `${lateDays} Delay`,
       icon: AlertCircle,
       color: "text-rose-500",
       detail: "Monthly",

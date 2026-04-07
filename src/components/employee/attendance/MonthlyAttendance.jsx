@@ -1,11 +1,26 @@
 import React from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
-const MonthlyAttendance = () => {
-  const days = Array.from({ length: 31 }, (_, i) => ({
-    day: i + 1,
-    status: i % 7 === 0 || i % 7 === 6 ? 'Weekend' : (i === 12 ? 'Absent' : (i === 18 ? 'Late' : (i < 15 ? 'Present' : 'Upcoming')))
-  }));
+const MonthlyAttendance = ({ history }) => {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = today.getMonth();
+  
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  
+  const days = Array.from({ length: daysInMonth }, (_, i) => {
+    const dayNum = i + 1;
+    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
+    const record = history?.find(r => r.date === dateStr);
+    const dayOfWeek = new Date(year, month, dayNum).getDay();
+    
+    let status = 'Upcoming';
+    if (dayOfWeek === 0 || dayOfWeek === 6) status = 'Weekend';
+    else if (record) status = record.status; // 'Present', 'Late', etc.
+    else if (dayNum < today.getDate()) status = 'Absent';
+
+    return { day: dayNum, status };
+  });
 
   const weekday = ["S", "M", "T", "W", "T", "F", "S"];
 

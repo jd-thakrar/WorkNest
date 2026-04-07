@@ -1,6 +1,18 @@
 import { ArrowUpRight, FileCheck } from "lucide-react";
 
 const ApprovalStatusCards = ({ request }) => {
+  if (!request) {
+    return (
+      <div className="bg-white p-5 rounded-xl border border-slate-200/60 shadow-sm h-full flex flex-col justify-center items-center text-center opacity-70">
+        <div className="w-12 h-12 bg-slate-50 text-slate-300 rounded-2xl flex items-center justify-center mb-4 border border-slate-100">
+           <FileCheck size={20} />
+        </div>
+        <h4 className="text-[11px] font-black text-[#042f2e] uppercase tracking-widest leading-none mb-1">No Active Requests</h4>
+        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest items-center flex gap-1">Status: Up-to-date <span className="text-teal-500">✓</span></p>
+      </div>
+    );
+  }
+
   const isPending = request.status === "Pending";
   const isApproved = request.status === "Approved";
 
