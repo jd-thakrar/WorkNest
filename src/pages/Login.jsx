@@ -10,29 +10,55 @@ import {
 } from "lucide-react";
 
 import { useAuth } from "../context/AuthContext";
+import { API_URL } from "../config";
 
 const Login = () => {
   const [formData, setFormData] = useState({ email: "", password: "" });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [errors, setErrors] = useState({});
   const navigate = useNavigate();
   const { login } = useAuth();
 
+  const validateForm = () => {
+    const newErrors = {};
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    
+    if (!formData.email) newErrors.email = "Email is required";
+    else if (!emailRegex.test(formData.email)) newErrors.email = "Invalid corporate email format";
+    
+    if (!formData.password) newErrors.password = "Password is required";
+    else if (formData.password.length < 6) newErrors.password = "Security requires at least 6 characters";
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!validateForm()) return;
+
     setIsSubmitting(true);
     setError("");
 
     try {
-      const response = await fetch("http://localhost:5000/api/auth/login", {
+      const response = await fetch(`${API_URL}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
       });
 
-      const data = await response.json();
+      let data;
+      try {
+        data = await response.json();
+      } catch (err) {
+        const text = await response.text();
+        data = { message: text || "Rate limit exceeded or server error." };
+      }
 
       if (response.ok) {
+        console.log("✅ LOGIN SUCCESSFUL");
+        console.log("🔑 JWT TOKEN RECEIVED:", data.token);
         login(data);
         if (data.role === "admin") {
           navigate("/app/dashboard");
@@ -103,14 +129,14 @@ const Login = () => {
                 </div>
                 <input
                   type="email"
-                  required
-                  className="block w-full pl-11 pr-4 py-4 bg-gray-50/50 border border-gray-100 rounded-2xl focus:ring-4 focus:ring-teal-500/5 focus:border-teal-500 focus:bg-white transition-all outline-none text-[#042f2e] font-medium placeholder:text-gray-300"
+                  className={`block w-full pl-11 pr-4 py-4 bg-gray-50/50 border rounded-2xl focus:ring-4 focus:ring-teal-500/5 focus:border-teal-500 focus:bg-white transition-all outline-none text-[#042f2e] font-medium placeholder:text-gray-300 ${errors.email ? 'border-rose-500 bg-rose-50/30' : 'border-gray-100'}`}
                   placeholder="name@company.com"
                   onChange={(e) =>
                     setFormData({ ...formData, email: e.target.value })
                   }
                 />
               </div>
+              {errors.email && <p className="text-[10px] font-bold text-rose-500 uppercase tracking-widest ml-1 animate-in fade-in slide-in-from-top-1">{errors.email}</p>}
             </div>
 
             <div className="space-y-2">
@@ -132,14 +158,14 @@ const Login = () => {
                 </div>
                 <input
                   type="password"
-                  required
-                  className="block w-full pl-11 pr-4 py-4 bg-gray-50/50 border border-gray-100 rounded-2xl focus:ring-4 focus:ring-teal-500/5 focus:border-teal-500 focus:bg-white transition-all outline-none text-[#042f2e] font-medium placeholder:text-gray-300"
+                  className={`block w-full pl-11 pr-4 py-4 bg-gray-50/50 border rounded-2xl focus:ring-4 focus:ring-teal-500/5 focus:border-teal-500 focus:bg-white transition-all outline-none text-[#042f2e] font-medium placeholder:text-gray-300 ${errors.password ? 'border-rose-500 bg-rose-50/30' : 'border-gray-100'}`}
                   placeholder="••••••••"
                   onChange={(e) =>
                     setFormData({ ...formData, password: e.target.value })
                   }
                 />
               </div>
+              {errors.password && <p className="text-[10px] font-bold text-rose-500 uppercase tracking-widest ml-1 animate-in fade-in slide-in-from-top-1">{errors.password}</p>}
             </div>
 
             <button

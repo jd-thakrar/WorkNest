@@ -251,8 +251,23 @@ const Attendance = () => {
     } catch (err){ console.error(err); }
   };
 
+  const [errors, setErrors] = useState({});
+
+  const validateLeaveEdit = () => {
+     const errs = {};
+     if (!editingLeave.reason || !editingLeave.reason.trim()) errs.reason = "Reason is mandatory for audit trails";
+     if (!editingLeave.from) errs.from = "Start date required";
+     if (!editingLeave.to) errs.to = "End date required";
+     if (editingLeave.from && editingLeave.to && editingLeave.to < editingLeave.from) errs.to = "End date conflict";
+     
+     setErrors(errs);
+     return Object.keys(errs).length === 0;
+  };
+
   const handleUpdateLeave = async (e) => {
-     e.preventDefault();
+     if (e) e.preventDefault();
+     if (!validateLeaveEdit()) return;
+
      try {
         const id = editingLeave.id || editingLeave._id;
         const res = await fetch(`${API_URL}/attendance/leaves/${id}`, {
@@ -272,6 +287,7 @@ const Attendance = () => {
               if (attRes.ok) setAttendance(attData);
            }
            setEditingLeave(null);
+           setErrors({});
         }
      } catch (err) { console.error(err); }
   };
@@ -476,8 +492,9 @@ const Attendance = () => {
                            type="date"
                            value={editingLeave.from ? new Date(editingLeave.from).toISOString().split('T')[0] : ''}
                            onChange={e => setEditingLeave({...editingLeave, from: e.target.value})}
-                           className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-3 text-sm font-bold text-[#042f2e] focus:outline-none focus:ring-4 focus:ring-teal-500/5 transition-all"
+                           className={`w-full bg-gray-50 border rounded-2xl px-5 py-3 text-sm font-bold text-[#042f2e] focus:outline-none focus:ring-4 focus:ring-teal-500/5 transition-all ${errors.from ? "border-rose-500 bg-rose-50/30" : "border-gray-100"}`}
                         />
+                        {errors.from && <p className="text-[9px] font-bold text-rose-500 uppercase tracking-widest ml-1 animate-in fade-in slide-in-from-top-1">{errors.from}</p>}
                      </div>
                      <div className="space-y-2">
                         <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Effective To</label>
@@ -485,8 +502,9 @@ const Attendance = () => {
                            type="date"
                            value={editingLeave.to ? new Date(editingLeave.to).toISOString().split('T')[0] : ''}
                            onChange={e => setEditingLeave({...editingLeave, to: e.target.value})}
-                           className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-3 text-sm font-bold text-[#042f2e] focus:outline-none focus:ring-4 focus:ring-teal-500/5 transition-all"
+                           className={`w-full bg-gray-50 border rounded-2xl px-5 py-3 text-sm font-bold text-[#042f2e] focus:outline-none focus:ring-4 focus:ring-teal-500/5 transition-all ${errors.to ? "border-rose-500 bg-rose-50/30" : "border-gray-100"}`}
                         />
+                        {errors.to && <p className="text-[9px] font-bold text-rose-500 uppercase tracking-widest ml-1 animate-in fade-in slide-in-from-top-1">{errors.to}</p>}
                      </div>
                   </div>
 
@@ -495,8 +513,9 @@ const Attendance = () => {
                      <textarea 
                         value={editingLeave.reason}
                         onChange={e => setEditingLeave({...editingLeave, reason: e.target.value})}
-                        className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-3 text-sm font-bold text-[#042f2e] min-h-[100px] resize-none focus:outline-none focus:ring-4 focus:ring-teal-500/5 transition-all"
+                        className={`w-full bg-gray-50 border rounded-2xl px-5 py-3 text-sm font-bold text-[#042f2e] min-h-[100px] resize-none focus:outline-none focus:ring-4 focus:ring-teal-500/5 transition-all ${errors.reason ? "border-rose-500 bg-rose-50/30" : "border-gray-100"}`}
                      />
+                     {errors.reason && <p className="text-[9px] font-bold text-rose-500 uppercase tracking-widest ml-1 animate-in fade-in slide-in-from-top-1">{errors.reason}</p>}
                   </div>
 
                   <div className="flex items-center gap-3 pt-4">

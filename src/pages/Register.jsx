@@ -27,11 +27,34 @@ const Register = () => {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [errors, setErrors] = useState({});
   const navigate = useNavigate();
   const { login } = useAuth();
 
+  const validateForm = () => {
+    const newErrors = {};
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    
+    if (!formData.name.trim()) newErrors.name = "Full name is required";
+    if (!formData.company.trim()) newErrors.company = "Company name is required";
+    if (!formData.jobTitle.trim()) newErrors.jobTitle = "Job title is required";
+    if (!formData.phone.trim()) newErrors.phone = "Phone number is required";
+    if (!formData.teamSize) newErrors.teamSize = "Select a squad size";
+    
+    if (!formData.email) newErrors.email = "Work email is required";
+    else if (!emailRegex.test(formData.email)) newErrors.email = "Invalid corporate email format";
+    
+    if (!formData.password) newErrors.password = "Security password is required";
+    else if (formData.password.length < 6) newErrors.password = "Requirements: at least 6 characters";
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!validateForm()) return;
+
     setIsSubmitting(true);
     setError("");
 
@@ -101,14 +124,14 @@ const Register = () => {
                     </div>
                     <input
                       type="text"
-                      required
-                      className="block w-full pl-11 pr-4 py-4 bg-gray-50/50 border border-gray-100 rounded-2xl focus:ring-4 focus:ring-teal-500/5 focus:border-teal-500 focus:bg-white transition-all outline-none text-[#042f2e] font-medium placeholder:text-gray-300"
+                      className={`block w-full pl-11 pr-4 py-4 bg-gray-50/50 border rounded-2xl focus:ring-4 focus:ring-teal-500/5 focus:border-teal-500 focus:bg-white transition-all outline-none text-[#042f2e] font-medium placeholder:text-gray-300 ${errors.name ? 'border-rose-500 bg-rose-50/30' : 'border-gray-100'}`}
                       placeholder="Jane Cooper"
                       onChange={(e) =>
                         setFormData({ ...formData, name: e.target.value })
                       }
                     />
                   </div>
+                  {errors.name && <p className="text-[9px] font-bold text-rose-500 uppercase tracking-widest ml-1 animate-in fade-in slide-in-from-top-1">{errors.name}</p>}
                 </div>
                 <div className="space-y-2">
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">
@@ -120,14 +143,14 @@ const Register = () => {
                     </div>
                     <input
                       type="text"
-                      required
-                      className="block w-full pl-11 pr-4 py-4 bg-gray-50/50 border border-gray-100 rounded-2xl focus:ring-4 focus:ring-teal-500/5 focus:border-teal-500 focus:bg-white transition-all outline-none text-[#042f2e] font-medium placeholder:text-gray-300"
+                      className={`block w-full pl-11 pr-4 py-4 bg-gray-50/50 border rounded-2xl focus:ring-4 focus:ring-teal-500/5 focus:border-teal-500 focus:bg-white transition-all outline-none text-[#042f2e] font-medium placeholder:text-gray-300 ${errors.company ? 'border-rose-500 bg-rose-50/30' : 'border-gray-100'}`}
                       placeholder="Acme Corp"
                       onChange={(e) =>
                         setFormData({ ...formData, company: e.target.value })
                       }
                     />
                   </div>
+                  {errors.company && <p className="text-[9px] font-bold text-rose-500 uppercase tracking-widest ml-1 animate-in fade-in slide-in-from-top-1">{errors.company}</p>}
                 </div>
               </div>
 
@@ -143,14 +166,14 @@ const Register = () => {
                     </div>
                     <input
                       type="text"
-                      required
-                      className="block w-full pl-11 pr-4 py-4 bg-gray-50/50 border border-gray-100 rounded-2xl focus:ring-4 focus:ring-teal-500/5 focus:border-teal-500 focus:bg-white transition-all outline-none text-[#042f2e] font-medium placeholder:text-gray-300"
+                      className={`block w-full pl-11 pr-4 py-4 bg-gray-50/50 border rounded-2xl focus:ring-4 focus:ring-teal-500/5 focus:border-teal-500 focus:bg-white transition-all outline-none text-[#042f2e] font-medium placeholder:text-gray-300 ${errors.jobTitle ? 'border-rose-500 bg-rose-50/30' : 'border-gray-100'}`}
                       placeholder="VP Operations"
                       onChange={(e) =>
                         setFormData({ ...formData, jobTitle: e.target.value })
                       }
                     />
                   </div>
+                  {errors.jobTitle && <p className="text-[9px] font-bold text-rose-500 uppercase tracking-widest ml-1 animate-in fade-in slide-in-from-top-1">{errors.jobTitle}</p>}
                 </div>
                 <div className="space-y-2">
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">
@@ -162,14 +185,14 @@ const Register = () => {
                     </div>
                     <input
                       type="tel"
-                      required
-                      className="block w-full pl-11 pr-4 py-4 bg-gray-50/50 border border-gray-100 rounded-2xl focus:ring-4 focus:ring-teal-500/5 focus:border-teal-500 focus:bg-white transition-all outline-none text-[#042f2e] font-medium placeholder:text-gray-300"
+                      className={`block w-full pl-11 pr-4 py-4 bg-gray-50/50 border rounded-2xl focus:ring-4 focus:ring-teal-500/5 focus:border-teal-500 focus:bg-white transition-all outline-none text-[#042f2e] font-medium placeholder:text-gray-300 ${errors.phone ? 'border-rose-500 bg-rose-50/30' : 'border-gray-100'}`}
                       placeholder="+91 00000 00000"
                       onChange={(e) =>
                         setFormData({ ...formData, phone: e.target.value })
                       }
                     />
                   </div>
+                  {errors.phone && <p className="text-[9px] font-bold text-rose-500 uppercase tracking-widest ml-1 animate-in fade-in slide-in-from-top-1">{errors.phone}</p>}
                 </div>
               </div>
 
@@ -185,14 +208,14 @@ const Register = () => {
                     </div>
                     <input
                       type="email"
-                      required
-                      className="block w-full pl-11 pr-4 py-4 bg-gray-50/50 border border-gray-100 rounded-2xl focus:ring-4 focus:ring-teal-500/5 focus:border-teal-500 focus:bg-white transition-all outline-none text-[#042f2e] font-medium placeholder:text-gray-300"
+                      className={`block w-full pl-11 pr-4 py-4 bg-gray-50/50 border rounded-2xl focus:ring-4 focus:ring-teal-500/5 focus:border-teal-500 focus:bg-white transition-all outline-none text-[#042f2e] font-medium placeholder:text-gray-300 ${errors.email ? 'border-rose-500 bg-rose-50/30' : 'border-gray-100'}`}
                       placeholder="jane@company.com"
                       onChange={(e) =>
                         setFormData({ ...formData, email: e.target.value })
                       }
                     />
                   </div>
+                  {errors.email && <p className="text-[9px] font-bold text-rose-500 uppercase tracking-widest ml-1 animate-in fade-in slide-in-from-top-1">{errors.email}</p>}
                 </div>
                 <div className="space-y-2">
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">
@@ -203,8 +226,7 @@ const Register = () => {
                       <Users size={18} />
                     </div>
                     <select
-                      required
-                      className="block w-full pl-11 pr-4 py-4 bg-gray-50/50 border border-gray-100 rounded-2xl focus:ring-4 focus:ring-teal-500/5 focus:border-teal-500 focus:bg-white transition-all outline-none text-[#042f2e] font-medium appearance-none cursor-pointer"
+                      className={`block w-full pl-11 pr-4 py-4 bg-gray-50/50 border rounded-2xl focus:ring-4 focus:ring-teal-500/5 focus:border-teal-500 focus:bg-white transition-all outline-none text-[#042f2e] font-medium appearance-none cursor-pointer ${errors.teamSize ? 'border-rose-500 bg-rose-50/30' : 'border-gray-100'}`}
                       onChange={(e) =>
                         setFormData({ ...formData, teamSize: e.target.value })
                       }
@@ -216,6 +238,7 @@ const Register = () => {
                       <option value="200+">200+</option>
                     </select>
                   </div>
+                  {errors.teamSize && <p className="text-[9px] font-bold text-rose-500 uppercase tracking-widest ml-1 animate-in fade-in slide-in-from-top-1">{errors.teamSize}</p>}
                 </div>
               </div>
 
@@ -229,17 +252,20 @@ const Register = () => {
                   </div>
                   <input
                     type="password"
-                    required
-                    className="block w-full pl-11 pr-4 py-4 bg-gray-50/50 border border-gray-100 rounded-2xl focus:ring-4 focus:ring-teal-500/5 focus:border-teal-500 focus:bg-white transition-all outline-none text-[#042f2e] font-medium placeholder:text-gray-300"
+                    className={`block w-full pl-11 pr-4 py-4 bg-gray-50/50 border rounded-2xl focus:ring-4 focus:ring-teal-500/5 focus:border-teal-500 focus:bg-white transition-all outline-none text-[#042f2e] font-medium placeholder:text-gray-300 ${errors.password ? 'border-rose-500 bg-rose-50/30' : 'border-gray-100'}`}
                     placeholder="••••••••"
                     onChange={(e) =>
                       setFormData({ ...formData, password: e.target.value })
                     }
                   />
                 </div>
-                <p className="text-[10px] text-gray-400 font-medium ml-1">
-                  Must be at least 12 characters with symbols
-                </p>
+                {errors.password ? (
+                  <p className="text-[9px] font-bold text-rose-500 uppercase tracking-widest ml-1 animate-in fade-in slide-in-from-top-1">{errors.password}</p>
+                ) : (
+                  <p className="text-[10px] text-gray-400 font-medium ml-1">
+                    Must be at least 12 characters with symbols
+                  </p>
+                )}
               </div>
 
               <button

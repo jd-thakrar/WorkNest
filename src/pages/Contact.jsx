@@ -8,6 +8,8 @@ import {
   ArrowUpRight,
 } from "lucide-react";
 
+import { API_URL } from "../config";
+
 /* ── Section label pill ── */
 const Label = ({ children }) => (
   <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-gray-100 bg-white text-[10px] font-semibold uppercase tracking-[0.2em] text-gray-400 mb-6 shadow-sm">
@@ -56,25 +58,39 @@ const Contact = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validateForm()) return;
 
     setIsSubmitting(true);
-    setTimeout(() => {
-      setIsSubmitting(false);
-      setIsSuccess(true);
-      setFormData({
-        name: "",
-        email: "",
-        phone: "",
-        company: "",
-        subject: "",
-        message: "",
+    try {
+      const response = await fetch(`${API_URL}/contact`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData)
       });
-      setErrors({});
-      setTimeout(() => setIsSuccess(false), 5000);
-    }, 1500);
+      
+      if (response.ok) {
+        setIsSuccess(true);
+        setFormData({
+          name: "",
+          email: "",
+          phone: "",
+          company: "",
+          subject: "",
+          message: "",
+        });
+        setErrors({});
+        setTimeout(() => setIsSuccess(false), 5000);
+      } else {
+         const err = await response.json();
+         setErrors({ submit: err.message || "Failed to send message" });
+      }
+    } catch (err) {
+      setErrors({ submit: "Network error. Please try again." });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleChange = (e) => {
@@ -194,6 +210,14 @@ const Contact = () => {
               <h3 className="text-3xl font-semibold text-gray-950 mb-10 tracking-tight">
                 Send us a message
               </h3>
+              {errors.submit && (
+                <div className="bg-rose-50 border border-rose-100 text-rose-600 px-6 py-5 rounded-[24px] mb-10 flex items-center gap-4 animate-in">
+                  <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse"></span>
+                  <span className="font-semibold text-[10px] uppercase tracking-widest">
+                    {errors.submit}
+                  </span>
+                </div>
+              )}
               {isSuccess && (
                 <div className="bg-emerald-50 border border-emerald-100 text-emerald-600 px-6 py-5 rounded-[24px] mb-10 flex items-center gap-4 animate-in">
                   <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>

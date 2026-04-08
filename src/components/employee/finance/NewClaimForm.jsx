@@ -14,18 +14,29 @@ const NewClaimForm = () => {
   });
   const [file, setFile] = useState(null);
   const fileInputRef = useRef(null);
+  const [errors, setErrors] = useState({});
 
   const handleFileChange = (e) => {
     const selected = e.target.files[0];
     if (selected) {
       if (selected.size > 5 * 1024 * 1024) return toast.error("File size exceeds 5MB");
       setFile(selected);
+      setErrors(prev => ({ ...prev, file: null }));
     }
+  };
+
+  const validateForm = () => {
+    const errs = {};
+    if (!formData.amount || Number(formData.amount) <= 0) errs.amount = "Invalid claim amount";
+    if (!file) errs.file = "Receipt is mandatory";
+    
+    setErrors(errs);
+    return Object.keys(errs).length === 0;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.amount || !file) return toast.error("Please provide amount and receipt");
+    if (!validateForm()) return;
 
     setIsSubmitting(true);
     try {
@@ -47,6 +58,7 @@ const NewClaimForm = () => {
         });
         setFormData({ category: "Travel & Conveyance", amount: "", description: "" });
         setFile(null);
+        setErrors({});
       } else {
         const err = await res.json();
         toast.error(err.message || "Submission failed");
@@ -94,9 +106,10 @@ const NewClaimForm = () => {
                 value={formData.amount}
                 onChange={(e) => setFormData({...formData, amount: e.target.value})}
                 placeholder="0.00"
-                className="w-full bg-slate-50/50 border border-slate-200 rounded-lg pl-8 pr-4 py-2.5 text-[13px] font-black text-[#042f2e] outline-none focus:border-teal-500/30 transition-all font-mono" 
+                className={`w-full bg-slate-50/50 border rounded-lg pl-8 pr-4 py-2.5 text-[13px] font-black text-[#042f2e] outline-none transition-all font-mono ${errors.amount ? "border-rose-500 bg-rose-50/30" : "border-slate-200 focus:border-teal-500/30"}`} 
               />
            </div>
+           {errors.amount && <p className="text-[9px] font-bold text-rose-500 uppercase tracking-widest ml-1 animate-in fade-in slide-in-from-top-1">{errors.amount}</p>}
         </div>
 
         <div className="space-y-1.5">
@@ -110,13 +123,13 @@ const NewClaimForm = () => {
            />
            <div 
              onClick={() => fileInputRef.current.click()}
-             className={`border-2 border-dashed ${file ? 'border-teal-500 bg-teal-50/20' : 'border-slate-200 bg-slate-50/30'} py-6 rounded-xl hover:bg-slate-50 hover:border-teal-200 transition-all cursor-pointer flex flex-col items-center justify-center gap-2 group`}
+             className={`border-2 border-dashed ${file ? 'border-teal-500 bg-teal-50/20' : errors.file ? 'border-rose-500 bg-rose-50/30' : 'border-slate-200 bg-slate-50/30'} py-6 rounded-xl hover:bg-slate-50 hover:border-teal-200 transition-all cursor-pointer flex flex-col items-center justify-center gap-2 group`}
            >
-              <div className={`w-8 h-8 rounded-full bg-white border ${file ? 'border-teal-200 text-teal-500' : 'border-slate-200 text-slate-400'} flex items-center justify-center group-hover:text-teal-600 group-hover:border-teal-100 shadow-sm transition-all`}>
+              <div className={`w-8 h-8 rounded-full bg-white border ${file ? 'border-teal-200 text-teal-500' : errors.file ? 'border-rose-300 text-rose-500' : 'border-slate-200 text-slate-400'} flex items-center justify-center group-hover:text-teal-600 group-hover:border-teal-100 shadow-sm transition-all`}>
                  {file ? <CheckCircle2 size={14} /> : <Upload size={14} />}
               </div>
-              <p className={`text-[10px] font-bold ${file ? 'text-teal-600' : 'text-slate-400'} uppercase tracking-widest`}>
-                {file ? file.name : 'Click to Upload PDF/JPG'}
+              <p className={`text-[10px] font-bold ${file ? 'text-teal-600' : errors.file ? 'text-rose-500' : 'text-slate-400'} uppercase tracking-widest`}>
+                {file ? file.name : errors.file ? errors.file : 'Click to Upload PDF/JPG'}
               </p>
            </div>
         </div>

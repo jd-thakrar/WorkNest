@@ -61,9 +61,10 @@ const Dashboard = () => {
         });
      }
 
-     const totalNet = financials.filter(f => f.month === payrollStatus.cycle).reduce((acc, f) => acc + (f.net || 0), 0);
-     const disbursedNet = financials.filter(f => f.month === payrollStatus.cycle).reduce((acc, f) => acc + (f.status === 'Paid' ? (f.net || 0) : 0), 0);
-     const pendingNet = totalNet - disbursedNet;
+     const currentMonthStr = new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+     const totalNet = financials.filter(f => f.month === currentMonthStr).reduce((acc, f) => acc + (f.net || 0), 0);
+     const disbursedNet = financials.filter(f => f.month === currentMonthStr).reduce((acc, f) => acc + (f.status === 'Paid' ? (f.net || 0) : 0), 0);
+     const pendingNet = financials.filter(f => f.month === currentMonthStr).reduce((acc, f) => acc + (f.status !== 'Paid' ? (f.net || 0) : 0), 0);
      
      const payroll = {
         total: `₹${totalNet.toLocaleString()}`,

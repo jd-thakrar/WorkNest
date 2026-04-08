@@ -1137,26 +1137,34 @@ const validate = (step, data) => {
   if (step === 1) {
     if (!data.basic.firstName.trim()) errs.firstName = "First name is required";
     if (!data.basic.lastName.trim()) errs.lastName = "Last name is required";
-    if (!data.basic.employeeId.trim())
-      errs.employeeId = "Employee ID is required";
+    if (!data.basic.employeeId.trim()) errs.employeeId = "Employee ID is required";
     if (!data.basic.joiningDate) errs.joiningDate = "Joining date is required";
     if (!data.basic.mobile.trim()) errs.mobile = "Mobile number is required";
-    if (!data.basic.email.includes("@")) errs.email = "Valid email required";
+    else if (data.basic.mobile.trim().length < 10) errs.mobile = "Minimum 10 digits required";
+    
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!data.basic.email) errs.email = "Email is required";
+    else if (!emailRegex.test(data.basic.email)) errs.email = "Invalid corporate email";
+    
+    if (!data.basic.password) errs.password = "Initial password required";
+    else if (data.basic.password.length < 6) errs.password = "Min 6 characters";
+    
     if (!data.basic.gender) errs.gender = "Please select gender";
     if (!data.basic.location) errs.location = "Please select location";
-    if (!data.basic.designation.trim())
-      errs.designation = "Designation is required";
+    if (!data.basic.designation.trim()) errs.designation = "Designation is required";
     if (!data.basic.department) errs.department = "Please select department";
   }
+  if (step === 2) {
+    if (data.statutory.pfEnabled) {
+       if (!data.statutory.pfEmployee || data.statutory.pfEmployee < 0) errs.pfEmployee = "Invalid %";
+       if (!data.statutory.pfEmployer || data.statutory.pfEmployer < 0) errs.pfEmployer = "Invalid %";
+    }
+  }
   if (step === 3) {
-    if (!data.personal.fatherName.trim())
-      errs.fatherName = "Father's name is required";
+    if (!data.personal.fatherName.trim()) errs.fatherName = "Father's name is required";
     if (!data.personal.address.trim()) errs.address = "Address is required";
     if (!data.personal.aadhaar.trim()) errs.aadhaar = "Aadhaar is required";
-    if (
-      data.personal.aadhaar &&
-      data.personal.aadhaar.replace(/\s/g, "").length !== 12
-    )
+    if (data.personal.aadhaar && data.personal.aadhaar.replace(/\s/g, "").length !== 12)
       errs.aadhaar = "Aadhaar must be 12 digits";
     if (!data.personal.pan.trim()) errs.pan = "PAN number is required";
     if (data.personal.pan && !/^[A-Z]{5}[0-9]{4}[A-Z]?/.test(data.personal.pan))
@@ -1165,12 +1173,15 @@ const validate = (step, data) => {
   }
   if (step === 4) {
     if (!data.bank.bankName) errs.bankName = "Please select bank";
-    if (!data.bank.accountHolder.trim())
-      errs.accountHolder = "Account holder name is required";
-    if (!data.bank.accountNumber.trim())
-      errs.accountNumber = "Account number is required";
+    if (!data.bank.accountHolder.trim()) errs.accountHolder = "Account holder name is required";
+    if (!data.bank.accountNumber.trim()) errs.accountNumber = "Account number is required";
     if (!data.bank.ifsc.trim()) errs.ifsc = "IFSC code is required";
+    else if (!/^[A-Z]{4}0[A-Z0-9]{6}?/.test(data.bank.ifsc)) errs.ifsc = "Invalid IFSC format";
     if (!data.bank.accountType) errs.accountType = "Please select account type";
+  }
+  if (step === 5) {
+     if (!data.salary.ctc || data.salary.ctc <= 0) errs.ctc = "Monthly CTC must be > 0";
+     if (!data.salary.basic || data.salary.basic <= 0) errs.basic = "Basic must be > 0";
   }
   return errs;
 };

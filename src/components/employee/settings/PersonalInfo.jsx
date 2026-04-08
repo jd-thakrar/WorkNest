@@ -6,7 +6,7 @@ import { User, Camera, ShieldCheck, Mail, Phone, Calendar, MapPin, Briefcase, Ha
  * Displays and allows editing of employee basic information, 
  * strictly reflecting the data points collected during the "Add Employee" process.
  */
-const PersonalInfo = ({ employee, onChange }) => {
+const PersonalInfo = ({ employee, onChange, errors = {} }) => {
   const formData = {
     firstName: employee?.firstName || "",
     middleName: employee?.middleName || "",
@@ -23,12 +23,12 @@ const PersonalInfo = ({ employee, onChange }) => {
   };
 
   const fields = [
-    { id: "firstName", name: "firstName", label: "First Name", icon: User, value: formData.firstName },
+    { id: "firstName", name: "firstName", label: "First Name", icon: User, value: formData.firstName, error: errors.firstName },
     { id: "middleName", name: "middleName", label: "Middle Name", icon: User, value: formData.middleName, placeholder: "Optional" },
-    { id: "lastName", name: "lastName", label: "Last Name", icon: User, value: formData.lastName },
+    { id: "lastName", name: "lastName", label: "Last Name", icon: User, value: formData.lastName, error: errors.lastName },
     { id: "employeeId", name: "employeeId", label: "Employee ID", icon: Hash, value: formData.employeeId, disabled: true },
     { id: "email", name: "email", label: "Work Email", icon: Mail, value: formData.email, disabled: true },
-    { id: "mobile", name: "mobile", label: "Mobile Number", icon: Phone, value: formData.mobile },
+    { id: "mobile", name: "mobile", label: "Mobile Number", icon: Phone, value: formData.mobile, error: errors.mobile },
     { id: "gender", name: "gender", label: "Gender", icon: User, value: formData.gender },
     { id: "type", name: "type", label: "Employment Type", icon: Briefcase, value: formData.type, disabled: true },
     { id: "joiningDate", name: "joiningDate", label: "Joining Date", icon: Calendar, value: formData.joiningDate, type: "date", disabled: true },
@@ -102,8 +102,11 @@ const PersonalInfo = ({ employee, onChange }) => {
                 className={`w-full px-5 py-3.5 rounded-xl border text-[13px] font-bold transition-all outline-none 
                   ${field.disabled 
                     ? "bg-slate-50 border-slate-100 text-slate-400 cursor-not-allowed shadow-none" 
-                    : "bg-white border-slate-100 text-[#042f2e] hover:border-slate-200 focus:border-[#042f2e] focus:ring-4 focus:ring-[#042f2e]/5 focus:bg-white shadow-sm"}`} 
+                    : field.error 
+                      ? "bg-rose-50/30 border-rose-500 text-rose-600 focus:ring-4 focus:ring-rose-500/5 shadow-sm"
+                      : "bg-white border-slate-100 text-[#042f2e] hover:border-slate-200 focus:border-[#042f2e] focus:ring-4 focus:ring-[#042f2e]/5 focus:bg-white shadow-sm"}`} 
               />
+              {field.error && <p className="text-[10px] font-bold text-rose-500 uppercase tracking-widest ml-1 animate-in fade-in slide-in-from-top-1">{field.error}</p>}
             </div>
           ))}
         </div>

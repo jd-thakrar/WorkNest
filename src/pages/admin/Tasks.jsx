@@ -297,9 +297,11 @@ const AddTaskModal = ({ onClose, onAdd, allTeams, initialData = null, allTasks =
             <div className="space-y-4">
               <div><label className="block text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1.5">Start Date <span className="text-rose-500">*</span></label>
                 <input type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} className={`w-full px-4 py-3 rounded-2xl border text-sm font-medium text-[#042f2e] focus:outline-none focus:ring-4 focus:ring-teal-500/10 focus:border-teal-400 transition-all ${errors.startDate ? "border-rose-400 bg-rose-50/30" : "border-gray-200"}`} />
+                {errors.startDate && <p className="text-[10px] text-rose-500 font-bold mt-1 flex items-center gap-1"><AlertCircle size={10} />{errors.startDate}</p>}
               </div>
               <div><label className="block text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1.5">End / Due Date <span className="text-rose-500">*</span></label>
                 <input type="date" value={form.endDate} onChange={(e) => setForm({ ...form, endDate: e.target.value })} className={`w-full px-4 py-3 rounded-2xl border text-sm font-medium text-[#042f2e] focus:outline-none focus:ring-4 focus:ring-teal-500/10 focus:border-teal-400 transition-all ${errors.endDate ? "border-rose-400 bg-rose-50/30" : "border-gray-200"}`} />
+                {errors.endDate && <p className="text-[10px] text-rose-500 font-bold mt-1 flex items-center gap-1"><AlertCircle size={10} />{errors.endDate}</p>}
               </div>
             </div>
           )}

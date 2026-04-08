@@ -31,6 +31,8 @@ const Settings = () => {
     };
   });
 
+  const [errors, setErrors] = useState({});
+
   const fetchProfile = async () => {
     if (!user?.token) return;
     try {
@@ -60,12 +62,32 @@ const Settings = () => {
     fetchProfile();
   }, [user.token]);
 
+  const validateSync = () => {
+    const errs = {};
+    if (!formData.firstName.trim()) errs.firstName = "First name is mandatory";
+    if (!formData.lastName.trim()) errs.lastName = "Last name is mandatory";
+    if (!formData.mobile.trim()) errs.mobile = "Mobile number required";
+    else if (formData.mobile.trim().length < 10) errs.mobile = "Minimum 10 digits required";
+    
+    setErrors(errs);
+    return Object.keys(errs).length === 0;
+  };
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+    // Clear error for this field
+    if (errors[name]) setErrors(prev => ({ ...prev, [name]: null }));
   };
 
   const handleSync = async () => {
+    if (!validateSync()) {
+      toast.error("Correction Required", {
+        style: { borderRadius: '16px', background: '#e11d48', color: '#fff', fontSize: '11px', fontWeight: 'bold' }
+      });
+      return;
+    }
+    
     try {
       const res = await fetch(`${API_URL}/employee-self/profile`, {
         method: 'PUT',
@@ -136,7 +158,7 @@ const Settings = () => {
 
         {/* Data Sections */}
         <div className="space-y-10">
-           <PersonalInfo employee={formData} onChange={handleChange} />
+           <PersonalInfo employee={formData} onChange={handleChange} errors={errors} />
            <StatutoryInfo employee={formData} onChange={handleChange} />
            <BankDetails employee={formData} />
         </div>
