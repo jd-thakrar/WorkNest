@@ -48,31 +48,43 @@ export const getEmployeeDashboard = async (req, res) => {
     };
 
     // 4. Fetch Leave Requests
-    const requests = await LeaveRequest.find({ userId: req.user._id })
+    const requests = await LeaveRequest.find({ empId: employee._id })
       .sort({ createdAt: -1 })
       .limit(3);
 
     const leaveStats = {
-      remaining: 12, // Placeholder
+      remaining: 12, 
       total: 24,
       upcoming: { range: 'No Upcoming', reason: '--' },
-      nextHoliday: 'Holi (Mar 25)' // Placeholder
+      nextHoliday: 'Holi (Mar 25)' 
     };
 
     // 5. Attendance Summary
-    const attendanceRecords = await Attendance.find({ 
-       employeeId: employee._id,
-       date: { $gte: new Date(new Date().setDate(new Date().getDate() - 7)) }
-    }).sort({ date: 1 });
+    const today = new Date().toISOString().split('T')[0];
+    const record = await Attendance.findOne({ empId: employee._id, date: today });
+
+    const history = await Attendance.find({ 
+       empId: employee._id 
+    }).sort({ date: -1 });
+
+    const lateDaysCount = history.filter(h => {
+       if (!h.checkIn) return false;
+       const [time, modifier] = h.checkIn.split(' ');
+       let [hrs, mins] = time.split(':').map(Number);
+       if (modifier === 'PM' && hrs !== 12) hrs += 12;
+       if (modifier === 'AM' && hrs === 12) hrs = 0;
+       return (hrs > 9) || (hrs === 9 && mins > 15);
+    }).length;
 
     const attendanceSummary = {
-      status: 'Ready', 
+      status: record?.status === 'ACTIVE' ? 'Clocked In' : (record?.status === 'ON_BREAK' ? 'On Break' : (record?.status === 'COMPLETED' ? 'Session Secured' : 'Ready')), 
       mode: 'Office',
-      lastPunch: 'Not Punched',
+      lastPunch: record?.checkIn || 'Not Punched',
       timer: '00:00:00',
-      weeklyStatus: attendanceRecords.map(a => ({
+      notes: record?.notes || '',
+      weeklyStatus: history.slice(0, 7).map(a => ({
          day: new Date(a.date).toLocaleDateString('en-US', { weekday: 'narrow' }),
-         status: a.status === 'Present' ? 'present' : 'absent'
+         status: a.status === 'COMPLETED' || a.status === 'ACTIVE' || a.status === 'Late' ? 'present' : 'absent'
       }))
     };
 
@@ -90,9 +102,12 @@ export const getEmployeeDashboard = async (req, res) => {
         id: r._id,
         type: 'Leave Request',
         status: r.status,
-        date: new Date(r.startDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
+        date: new Date(r.from).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
       })),
-      leave: leaveStats,
+      leave: {
+         ...leaveStats,
+         lateDays: lateDaysCount
+      },
       payroll: payrollSnapshot
     });
 
@@ -138,36 +153,107 @@ export const punchAttendance = async (req, res) => {
     if (!employee) return res.status(404).json({ message: 'Personnel record not found' });
 
     const today = new Date().toISOString().split('T')[0];
-    let record = await Attendance.findOne({ 
-      empId: employee._id, 
-      date: today 
-    });
-
     const currentTime = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
 
+    let record = await Attendance.findOne({ empId: employee._id, date: today });
+
+    // 1. Initial Check-In (NOT_STARTED -> ACTIVE/LATE)
     if (!record) {
-      // First punch of the day -> Check-In
+      // Determine if Late (Office start: 09:00 AM, Grace: 15m)
+      const [time, modifier] = currentTime.split(' ');
+      let [hrs, mins] = time.split(':').map(Number);
+      if (modifier === 'PM' && hrs !== 12) hrs += 12;
+      if (modifier === 'AM' && hrs === 12) hrs = 0;
+      
+      const isLate = (hrs > 9) || (hrs === 9 && mins > 15);
+
       record = await Attendance.create({
         empId: employee._id,
         date: today,
         checkIn: currentTime,
-        status: 'Present',
+        status: isLate ? 'Late' : 'ACTIVE',
         company: req.user.company,
       });
-    } else if (!record.checkOut) {
-      // Already checked in -> Check-Out
-      record.checkOut = currentTime;
-      await record.save();
-    } else {
-      return res.status(400).json({ message: 'Daily session already completed' });
+      return res.json({ message: isLate ? 'Late Entry Logged' : 'Entry Secured', status: record.status, time: currentTime });
     }
 
-    res.json({
-      status: record.checkOut ? 'Ready' : 'Clocked In',
-      lastPunch: currentTime,
-      timer: '00:00:00'
-    });
+    // 2. Reject if COMPLETED 
+    if (record.status === 'COMPLETED') {
+      return res.status(400).json({ message: 'Daily session already locked' });
+    }
 
+    // 3. Reject if ON_BREAK (Must end break before punch out)
+    if (record.status === 'ON_BREAK') {
+       return res.status(400).json({ message: 'Please secure break session first' });
+    }
+
+    // 4. Punch Out (ACTIVE -> COMPLETED)
+    if (record.status === 'ACTIVE') {
+       record.checkOut = currentTime;
+       record.status = 'COMPLETED';
+       
+       // Calculate Duration
+       const start = new Date(`2000-01-01 ${record.checkIn}`);
+       const endReal = new Date(`2000-01-01 ${currentTime}`);
+       
+       const totalMs = endReal - start - ((record.totalBreakTime || 0) * 60000);
+       const h = Math.floor(totalMs / 3600000);
+       const m = Math.floor((totalMs % 3600000) / 60000);
+       record.totalWorkingHours = `${h}h ${m}m`;
+
+       await record.save();
+       return res.json({ message: 'System Secured', status: 'COMPLETED', hours: record.totalWorkingHours });
+    }
+
+    res.status(400).json({ message: 'Invalid Operation' });
+
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Toggle break for employee
+// @route   POST /api/employee-self/break
+// @access  Private/Employee
+export const toggleBreak = async (req, res) => {
+  try {
+    const employee = await Employee.findOne({ user: req.user._id });
+    if (!employee) return res.status(404).json({ message: 'Personnel record not found' });
+
+    const today = new Date().toISOString().split('T')[0];
+    const currentTime = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+
+    let record = await Attendance.findOne({ empId: employee._id, date: today });
+
+    if (!record || record.status === 'COMPLETED') {
+      return res.status(400).json({ message: 'No active session' });
+    }
+
+    if (record.status === 'ACTIVE') {
+      // Start Break: ACTIVE -> ON_BREAK
+      record.status = 'ON_BREAK';
+      record.breaks.push({ start: currentTime });
+      await record.save();
+      return res.json({ message: 'Break Session Launched', status: 'ON_BREAK', time: currentTime });
+    }
+
+    if (record.status === 'ON_BREAK') {
+      // Find the last break that hasn't ended 
+      const lastBreak = record.breaks[record.breaks.length - 1];
+      lastBreak.end = currentTime;
+      
+      // Calculate break duration
+      const s = new Date(`2000-01-01 ${lastBreak.start}`);
+      const e = new Date(`2000-01-01 ${currentTime}`);
+      const diffMs = e - s;
+      record.totalBreakTime += Math.floor(diffMs / 60000); // add minutes
+
+      record.status = 'ACTIVE';
+      await record.save();
+      return res.json({ message: 'Break Session Secured', status: 'ACTIVE', time: currentTime });
+    }
+
+    res.status(400).json({ message: 'Operation not Allowed' });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -185,7 +271,43 @@ export const getEmployeeAttendance = async (req, res) => {
       .sort({ date: -1 })
       .limit(31);
 
-    res.json(records);
+    // Calculate working hours for each record
+    const mappedHistory = records.map(r => {
+       let worked = '0h 0m';
+       if (r.checkIn && r.checkOut) {
+          const start = new Date(`2000-01-01 ${r.checkIn}`);
+          const end = new Date(`2000-01-01 ${r.checkOut}`);
+          const diffMs = end - start - ((r.totalBreakTime || 0) * 60 * 1000);
+          const diffHrs = Math.floor(diffMs / 3600000);
+          const diffMins = Math.floor((diffMs % 3600000) / 60000);
+          worked = `${diffHrs}h ${diffMins}m`;
+       }
+       return { ...r._doc, workedHours: worked };
+    });
+
+    res.json(mappedHistory);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Update daily notes/logs
+// @route   POST /api/employee-self/notes
+// @access  Private/Employee
+export const updateNotes = async (req, res) => {
+  try {
+    const employee = await Employee.findOne({ user: req.user._id });
+    if (!employee) return res.status(404).json({ message: 'Personnel record not found' });
+
+    const today = new Date().toISOString().split('T')[0];
+    let record = await Attendance.findOne({ empId: employee._id, date: today });
+
+    if (!record) return res.status(404).json({ message: 'No active session' });
+
+    record.notes = req.body.notes || '';
+    await record.save();
+
+    res.json({ message: 'Log Updated', notes: record.notes });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

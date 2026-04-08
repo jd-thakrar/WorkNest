@@ -2,8 +2,10 @@ import React from "react";
 import { Clock, CheckCircle2, AlertCircle, BarChart3 } from "lucide-react";
 
 const StatusChips = ({ history }) => {
-  const todayRecord = history?.find(r => r.date === new Date().toISOString().split('T')[0]);
-  const presentDays = history?.filter(r => r.status === 'Present').length || 0;
+  const todayDate = new Date().toISOString().split('T')[0];
+  const todayRecord = history?.find(r => r.date === todayDate);
+  const presentRecs = history?.filter(r => r.status === 'Present' || r.status === 'ACTIVE' || r.status === 'COMPLETED' || r.status === 'ON_BREAK' || r.status === 'Late');
+  const presentDays = presentRecs?.length || 0;
   const lateDays = history?.filter(r => r.status === 'Late').length || 0;
   const totalDays = history?.length || 0;
 
@@ -17,21 +19,21 @@ const StatusChips = ({ history }) => {
     },
     {
       label: "Working Hr",
-      value: "00h 00m", // Placeholder for actual calc
+      value: todayRecord?.workedHours || "00h 00m",
       icon: BarChart3,
       color: "text-blue-600",
-      detail: "Target: 8h",
+      detail: "Today",
     },
     {
       label: "Present",
-      value: `${presentDays} / ${totalDays || 30}`,
+      value: `${presentDays} Days`,
       icon: CheckCircle2,
       color: "text-emerald-600",
-      detail: "Days",
+      detail: `of ${totalDays}`,
     },
     {
       label: "Late Days",
-      value: `${lateDays} Delay`,
+      value: `${lateDays} Days`,
       icon: AlertCircle,
       color: "text-rose-500",
       detail: "Monthly",

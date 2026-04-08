@@ -2,11 +2,21 @@ import mongoose from 'mongoose';
 
 const AttendanceSchema = new mongoose.Schema({
   empId: { type: mongoose.Schema.Types.ObjectId, ref: 'Employee', required: true },
-  date: { type: String, required: true },
+  date: { type: String, required: true }, // YYYY-MM-DD
   checkIn: { type: String },
   checkOut: { type: String },
-  break: { type: Number, default: 0 },
-  status: { type: String, enum: ['Present', 'Absent', 'Late', 'Half Day', 'On Leave'], required: true },
+  breaks: [{
+    start: { type: String },
+    end: { type: String }
+  }],
+  totalBreakTime: { type: Number, default: 0 }, // in minutes
+  totalWorkingHours: { type: String, default: '0h 0m' },
+  status: { 
+    type: String, 
+    enum: ['NOT_STARTED', 'ACTIVE', 'ON_BREAK', 'COMPLETED'], 
+    default: 'NOT_STARTED' 
+  },
+  notes: { type: String, default: '' },
   company: { type: String, required: true }
 }, { timestamps: true });
 

@@ -6,8 +6,25 @@ import Employee from '../models/Employee.js';
 export const getAttendance = async (req, res) => {
   try {
     const attendance = await Attendance.find({ company: req.user.company })
-      .populate('empId', 'firstName lastName');
-    res.json(attendance);
+      .populate('empId', 'firstName lastName avatar department');
+    
+    // Map records to include calculated working hours
+    const mapped = attendance.map(r => {
+       let worked = '0h 0m';
+       if (r.checkIn && r.checkOut) {
+          const start = new Date(`2000-01-01 ${r.checkIn}`);
+          const end = new Date(`2000-01-01 ${r.checkOut}`);
+          const diffMs = end - start - ((r.totalBreakTime || 0) * 60 * 1000);
+          const diffHrs = Math.floor(diffMs / 3600000);
+          const diffMins = Math.floor((diffMs % 3600000) / 60000);
+          worked = `${diffHrs}h ${diffMins}m`;
+       } else if (r.status === 'COMPLETED') {
+          worked = r.totalWorkingHours || '0h 0m';
+       }
+       return { ...r._doc, workedHours: worked };
+    });
+
+    res.json(mapped);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

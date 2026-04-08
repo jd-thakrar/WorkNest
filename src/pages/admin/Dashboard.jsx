@@ -54,7 +54,7 @@ const Dashboard = () => {
         const dayAtts = attendance.filter(a => a.date === dayIso);
         attChart.push({ 
            d: dayStr, 
-           p: dayAtts.filter(a => a.status === 'Present').length,
+           p: dayAtts.filter(a => ['Present', 'ACTIVE', 'ON_BREAK', 'COMPLETED', 'Late'].includes(a.status)).length,
            l: dayAtts.filter(a => a.status === 'Late').length,
            a: dayAtts.filter(a => a.status === 'Absent').length
         });
@@ -95,7 +95,7 @@ const Dashboard = () => {
   const completedTasksCount = tasks.filter((t) => t.status === "Completed").length;
 
   const todayIso = getLocalDate(new Date());
-  const presentToday = attendance.filter((a) => a.status === "Present" && a.date === todayIso).length;
+  const presentToday = attendance.filter((a) => ['Present', 'ACTIVE', 'ON_BREAK', 'COMPLETED', 'Late'].includes(a.status) && a.date === todayIso).length;
   const tasksDueTodayCount = tasks.filter(t => t.endDate === todayIso).length;
 
   const currentStats = {

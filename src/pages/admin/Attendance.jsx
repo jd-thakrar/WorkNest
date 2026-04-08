@@ -25,76 +25,11 @@ import { useAuth } from "../../context/AuthContext.jsx";
 import { API_URL } from "../../config";
 
 // ─── UTILITIES ───────────────────────────────────────────────────────────────
-const calculateHours = (inTime, outTime, breakMins) => {
-  if (!inTime || !outTime) return "-";
-  const [h1, m1] = inTime.split(":").map(Number);
-  const [h2, m2] = outTime.split(":").map(Number);
-  let totalMins = h2 * 60 + m2 - (h1 * 60 + m1);
-  totalMins -= breakMins || 0;
-  const h = Math.floor(totalMins / 60);
-  const m = totalMins % 60;
-  return `${h}h ${m}m`;
-};
-
-const getPayrollImpact = (status) => {
-  return ["Absent", "Half Day", "On Leave"].includes(status);
-};
-
-const STATUS_CONFIG = {
-  Present: {
-    color: "text-emerald-600",
-    bg: "bg-emerald-50",
-    border: "border-emerald-100",
-    dot: "bg-emerald-500",
-  },
-  Late: {
-    color: "text-amber-600",
-    bg: "bg-amber-50",
-    border: "border-amber-100",
-    dot: "bg-amber-500",
-  },
-  "Half Day": {
-    color: "text-blue-600",
-    bg: "bg-blue-50",
-    border: "border-blue-100",
-    dot: "bg-blue-500",
-  },
-  Absent: {
-    color: "text-rose-600",
-    bg: "bg-rose-50",
-    border: "border-rose-100",
-    dot: "bg-rose-500",
-  },
-  "On Leave": {
-    color: "text-teal-600",
-    bg: "bg-teal-50",
-    border: "border-teal-100",
-    dot: "bg-teal-500",
-  },
-};
-
 const LEAVE_STATUS_CONFIG = {
-  Pending: {
-    color: "text-amber-600",
-    bg: "bg-amber-50",
-    border: "border-amber-100",
-    icon: Clock,
-  },
-  Approved: {
-    color: "text-emerald-600",
-    bg: "bg-emerald-50",
-    border: "border-emerald-100",
-    icon: CheckCircle2,
-  },
-  Rejected: {
-    color: "text-rose-600",
-    bg: "bg-rose-50",
-    border: "border-rose-100",
-    icon: X,
-  },
+  Pending: { color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-100", icon: Clock },
+  Approved: { color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-100", icon: CheckCircle2 },
+  Rejected: { color: "text-rose-600", bg: "bg-rose-50", border: "border-rose-100", icon: X },
 };
-
-// ─── COMPONENTS ─────────────────────────────────────────────────────────────
 
 const StatCard = ({ label, value, icon: Icon, color, bg }) => (
   <motion.div
@@ -102,143 +37,90 @@ const StatCard = ({ label, value, icon: Icon, color, bg }) => (
     className="bg-white p-6 rounded-[32px] border border-gray-100 shadow-sm flex items-center justify-between"
   >
     <div className="space-y-1">
-      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none">
-        {label}
-      </p>
-      <p
-        style={{ fontFamily: "'Outfit', sans-serif" }}
-        className="text-3xl font-black text-[#042f2e]"
-      >
-        {value}
-      </p>
+      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none">{label}</p>
+      <p style={{ fontFamily: "'Outfit', sans-serif" }} className="text-3xl font-black text-[#042f2e]">{value}</p>
     </div>
-    <div
-      className={`w-14 h-14 rounded-2xl ${bg} flex items-center justify-center shrink-0 shadow-sm`}
-    >
+    <div className={`w-14 h-14 rounded-2xl ${bg} flex items-center justify-center shrink-0 shadow-sm`}>
       <Icon size={28} className={color} />
     </div>
   </motion.div>
 );
 
-const AttendanceTable = ({ data, employees, onOverride }) => {
+const STATUS_CONFIG = {
+  ACTIVE: { label: "Clocked In", color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-100", dot: "bg-emerald-500" },
+  ON_BREAK: { label: "On Break", color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-100", dot: "bg-amber-500" },
+  COMPLETED: { label: "Finished", color: "text-slate-600", bg: "bg-slate-50", border: "border-slate-100", dot: "bg-slate-400" },
+  Late: { label: "Late Day", color: "text-rose-600", bg: "bg-rose-50", border: "border-rose-100", dot: "bg-rose-500" },
+  Present: { label: "Present", color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-100", dot: "bg-emerald-500" },
+  Absent: { label: "Absent", color: "text-rose-600", bg: "bg-rose-50", border: "border-rose-100", dot: "bg-rose-500" },
+};
+
+const AttendanceTable = ({ data, onOverride }) => {
   return (
     <div className="overflow-x-auto thin-scroll">
       <table className="w-full text-left">
         <thead>
-          <tr className="bg-gray-50/50 border-b border-gray-100">
-            <th className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">
-              Employee
-            </th>
-            <th className="px-6 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">
-              In / Out
-            </th>
-            <th className="px-6 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">
-              Break
-            </th>
-            <th className="px-6 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">
-              Total Hours
-            </th>
-            <th className="px-6 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">
-              Status
-            </th>
-            <th className="px-8 py-5 text-right text-[10px] font-black text-gray-400 uppercase tracking-widest">
-              Actions
-            </th>
+          <tr className="bg-gray-50/50 border-b border-gray-100 uppercase tracking-widest text-[9px] font-black text-gray-400">
+            <th className="px-8 py-6">Personnel</th>
+            <th className="px-6 py-6">Check In / Out</th>
+            <th className="px-6 py-6 text-center">Break</th>
+            <th className="px-6 py-6">Duration</th>
+            <th className="px-6 py-6">Shift Log</th>
+            <th className="px-6 py-6">Status</th>
+            <th className="px-8 py-6 text-right">Actions</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-50">
           {data.map((row) => {
-            const emp = employees.find((e) => e.id === row.empId);
-            const style = STATUS_CONFIG[row.status] || STATUS_CONFIG["Present"];
-            const hasImpact = getPayrollImpact(row.status);
+            const empName = row.empId?.firstName ? `${row.empId.firstName} ${row.empId.lastName}` : "Personnel";
+            const state = STATUS_CONFIG[row.status] || STATUS_CONFIG["Present"];
 
             return (
-              <tr
-                key={row.id}
-                className="hover:bg-teal-50/10 transition-colors group"
-              >
+              <tr key={row._id} className="hover:bg-slate-50/10 transition-colors group">
                 <td className="px-8 py-5">
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-xl bg-gray-100 border border-gray-200 overflow-hidden shrink-0">
-                      <img
-                        src={emp?.avatar}
-                        alt={emp?.name}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                    <div>
-                      <div className="text-sm font-bold text-[#042f2e]">
-                        {emp?.name}
+                   <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-xl bg-slate-100 border border-slate-200 overflow-hidden shrink-0">
+                         <img src={row.empId?.avatar || "/default-avatar.png"} className="w-full h-full object-cover" alt="" />
                       </div>
-                      <div className="text-[10px] text-gray-400 font-bold uppercase tracking-tighter shrink-0">
-                        {emp?.dept}
+                      <div>
+                         <div className="text-sm font-bold text-[#042f2e]">{empName}</div>
+                         <div className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">{row.empId?.department || "General"}</div>
                       </div>
-                    </div>
-                  </div>
+                   </div>
                 </td>
                 <td className="px-6 py-5">
-                  <div className="flex items-center gap-3">
-                    <div className="text-center px-2 py-1 bg-gray-50 rounded-lg border border-gray-100 min-w-[60px]">
-                      <span className="text-[10px] font-black text-gray-400 block tracking-tighter">
-                        IN
-                      </span>
-                      <span className="text-xs font-black text-[#042f2e]">
-                        {row.checkIn || "--:--"}
-                      </span>
-                    </div>
-                    <div className="text-center px-2 py-1 bg-gray-50 rounded-lg border border-gray-100 min-w-[60px]">
-                      <span className="text-[10px] font-black text-gray-400 block tracking-tighter">
-                        OUT
-                      </span>
-                      <span className="text-xs font-black text-[#042f2e]">
-                        {row.checkOut || "--:--"}
-                      </span>
-                    </div>
-                  </div>
+                   <div className="flex items-center gap-2">
+                      <div className="px-2 py-1 bg-slate-50 border border-slate-100 rounded-lg text-center min-w-[55px]">
+                         <span className="text-[8px] font-black text-slate-400 block tracking-tight">IN</span>
+                         <span className="text-[11px] font-black text-[#042f2e]">{row.checkIn || "--:--"}</span>
+                      </div>
+                      <div className="px-2 py-1 bg-slate-50 border border-slate-100 rounded-lg text-center min-w-[55px]">
+                         <span className="text-[8px] font-black text-slate-400 block tracking-tight">OUT</span>
+                         <span className="text-[11px] font-black text-[#042f2e]">{row.checkOut || "--:--"}</span>
+                      </div>
+                   </div>
                 </td>
                 <td className="px-6 py-5 text-center">
-                  <span className="text-xs font-bold text-gray-400">
-                    {row.break || 0}m
-                  </span>
+                   <span className="text-xs font-bold text-slate-400">{row.totalBreakTime || 0}m</span>
+                </td>
+                <td className="px-6 py-5 font-black text-sm text-[#042f2e]">
+                   {row.workedHours || "0h 0m"}
+                </td>
+                <td className="px-6 py-5 max-w-[200px]">
+                   <p className="text-xs text-slate-400 line-clamp-1 italic truncate">
+                      {row.notes ? `“${row.notes}”` : "-"}
+                   </p>
                 </td>
                 <td className="px-6 py-5">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-black text-[#042f2e]">
-                      {calculateHours(
-                        row.checkIn,
-                        row.checkOut,
-                        row.break || 0,
-                      )}
-                    </span>
-                    {hasImpact && (
-                      <div className="group/impact relative">
-                        <AlertCircle
-                          size={14}
-                          className="text-rose-400 animate-pulse"
-                        />
-                        <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 bg-[#042f2e] text-white text-[9px] font-bold py-1 px-2 rounded opacity-0 invisible group-hover/impact:opacity-100 group-hover/impact:visible transition-all whitespace-nowrap z-50">
-                          Payroll Deductible
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </td>
-                <td className="px-6 py-5">
-                  <span
-                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border ${style.bg} ${style.color} ${style.border}`}
-                  >
-                    <span className={`w-1.5 h-1.5 rounded-full ${style.dot}`} />
-                    {row.status}
-                  </span>
+                   <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${state.bg} ${state.color} ${state.border}`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${state.dot}`} />
+                      {state.label}
+                   </span>
                 </td>
                 <td className="px-8 py-5 text-right">
-                  <button
-                    onClick={() => onOverride(row)}
-                    className="p-2 text-gray-400 hover:text-teal-600 hover:bg-teal-50 rounded-xl transition-all"
-                    title="Manual Override"
-                  >
-                    <Edit3 size={18} />
-                  </button>
+                   <button onClick={() => onOverride(row)} className="p-2 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded-xl transition-all">
+                      <Edit3 size={18} />
+                   </button>
                 </td>
               </tr>
             );
