@@ -4,9 +4,9 @@ import { motion } from "framer-motion";
 const TaskFilters = ({ activeTab, setActiveTab, counts = {} }) => {
   const tabs = [
     { label: "All", count: counts.all || 0 },
-    { label: "Active", count: counts.active || 0 },
-    { label: "Done", count: counts.done || 0 },
-    { label: "Overdue", count: counts.overdue || 0 },
+    { label: "Pending", count: counts.pending || 0 },
+    { label: "In Progress", count: counts.inProgress || 0 },
+    { label: "Completed", count: counts.completed || 0 },
   ];
 
   return (

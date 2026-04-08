@@ -3,9 +3,9 @@ import { CheckSquare, Clock, AlertCircle, BarChart3 } from "lucide-react";
 
 const TaskSummaryStrip = ({ stats = {} }) => {
   const summary = [
-    { label: "Active Tasks", value: stats.active || "0", icon: CheckSquare, color: "text-teal-600", detail: "Ongoing" },
-    { label: "Hours logged", value: stats.hours || "0h", icon: Clock, color: "text-blue-600", detail: "This Week" },
-    { label: "Completed", value: `${stats.done || 0} / ${stats.all || 0}`, icon: BarChart3, color: "text-emerald-600", detail: "Monthly" },
+    { label: "In Progress", value: stats.inProgress || "0", icon: CheckSquare, color: "text-amber-500", detail: "Ongoing" },
+    { label: "Hours logged", value: stats.hours || "0h 0m", icon: Clock, color: "text-blue-600", detail: "This Week" },
+    { label: "Completed", value: `${stats.completed || 0} / ${stats.all || 0}`, icon: BarChart3, color: "text-emerald-600", detail: "Monthly" },
     { label: "Overdue", value: stats.overdue || "0", icon: AlertCircle, color: "text-rose-500", detail: "Attention" },
   ];
 

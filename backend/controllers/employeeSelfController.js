@@ -33,7 +33,8 @@ export const getEmployeeDashboard = async (req, res) => {
         id: t._id,
         title: t.name,
         priority: t.priority,
-        due: t.endDate ? new Date(t.endDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : 'No Date'
+        due: t.endDate ? new Date(t.endDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : 'No Date',
+        status: t.status
       }))
     };
 
@@ -126,19 +127,74 @@ export const getEmployeeTasks = async (req, res) => {
       return res.status(404).json({ message: 'Employee profile not found' });
     }
 
+    // Fetch Tasks
     const tasks = await Task.find({ members: employee._id })
       .sort({ endDate: 1 });
 
     const mappedTasks = tasks.map(t => ({
       id: t._id,
       title: t.name,
+      description: t.description,
       priority: t.priority,
-      due: t.status === 'Completed' ? 'Closed' : (t.endDate < new Date() ? 'Overdue' : new Date(t.endDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })),
-      status: t.status === 'Completed' ? 'Done' : (t.endDate < new Date() ? 'Overdue' : 'Active'),
+      due: t.status === 'Completed' ? 'Closed' : (new Date(t.endDate) < new Date() ? 'Overdue' : new Date(t.endDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })),
+      endDate: t.endDate, // RAW date for counter calculation
+      status: t.status, 
       time: '0h 0m' 
     }));
 
-    res.json(mappedTasks);
+    // Calculate Weekly Hours from Attendance
+    const today = new Date();
+    const dayOfWeek = today.getDay(); // 0 (Sun) to 6 (Sat)
+    const diffToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1; 
+    const monday = new Date(today);
+    monday.setDate(today.getDate() - diffToMonday);
+    monday.setHours(0,0,0,0);
+
+    const weeklyAttendance = await Attendance.find({
+       empId: employee._id,
+       date: { $gte: monday.toISOString().split('T')[0] },
+       status: 'COMPLETED'
+    });
+
+    let totalMinutes = 0;
+    weeklyAttendance.forEach(att => {
+       if (att.totalWorkingHours) {
+          const [h, m] = att.totalWorkingHours.split('h ').map(s => parseInt(s));
+          totalMinutes += (h * 60) + (isNaN(m) ? 0 : m);
+       }
+    });
+
+    const hTotal = Math.floor(totalMinutes / 60);
+    const mTotal = totalMinutes % 60;
+    const weeklyHours = `${hTotal}h ${mTotal}m`;
+
+    res.json({ tasks: mappedTasks, weeklyHours });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Update task status by employee
+// @route   PUT /api/employee-self/tasks/:id
+// @access  Private/Employee
+export const updateTaskStatus = async (req, res) => {
+  try {
+    const employee = await Employee.findOne({ user: req.user._id });
+    const { status } = req.body;
+
+    if (!['Pending', 'In Progress', 'Completed'].includes(status)) {
+       return res.status(400).json({ message: 'Invalid status' });
+    }
+
+    const task = await Task.findOne({ _id: req.params.id, members: employee._id });
+    if (!task) {
+       return res.status(404).json({ message: 'Task not found or access denied' });
+    }
+
+    task.status = status;
+    await task.save();
+
+    res.json({ message: `Task marked as ${status}`, status: task.status });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

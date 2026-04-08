@@ -13,8 +13,9 @@ import TaskSummaryStrip from "../../components/employee/tasks/TaskSummaryStrip";
 const Tasks = () => {
   const { user } = useAuth();
   const [tasks, setTasks] = useState([]);
+  const [weeklyHours, setWeeklyHours] = useState("0h 0m");
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("Active");
+  const [activeTab, setActiveTab] = useState("All");
   const [viewMode, setViewMode] = useState("grid");
 
   useEffect(() => {
@@ -24,7 +25,10 @@ const Tasks = () => {
           headers: { "Authorization": `Bearer ${user.token}` }
         });
         const data = await res.json();
-        if (res.ok) setTasks(data);
+        if (res.ok) {
+           setTasks(data.tasks || []);
+           setWeeklyHours(data.weeklyHours || "0h 0m");
+        }
       } catch (err) {
         console.error(err);
       } finally {
@@ -34,15 +38,34 @@ const Tasks = () => {
     if (user) fetchTasks();
   }, [user]);
 
+  const handleStatusUpdate = async (taskId, newStatus) => {
+    try {
+      const res = await fetch(`${API_URL}/employee-self/tasks/${taskId}`, {
+        method: "PUT",
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${user.token}` 
+        },
+        body: JSON.stringify({ status: newStatus })
+      });
+      if (res.ok) {
+        setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const filteredTasks = tasks.filter(t => activeTab === 'All' || t.status === activeTab);
 
-  // Sync logical counts
+  // Sync logical counts with Admin labels: Pending, In Progress, Completed
   const taskCounts = {
     all: tasks.length,
-    active: tasks.filter(t => t.status === "Active").length,
-    done: tasks.filter(t => t.status === "Done").length,
-    overdue: tasks.filter(t => t.status === "Overdue").length,
-    hours: "0h 0m" 
+    pending: tasks.filter(t => t.status === "Pending").length,
+    inProgress: tasks.filter(t => t.status === "In Progress").length,
+    completed: tasks.filter(t => t.status === "Completed").length,
+    overdue: tasks.filter(t => t.status !== "Completed" && new Date(t.endDate) < new Date()).length,
+    hours: weeklyHours
   };
 
   const containerVariants = {
@@ -121,7 +144,7 @@ const Tasks = () => {
           >
             {filteredTasks.map((task) => (
               <motion.div key={task.id} variants={itemVariants} layout transition={{ duration: 0.3 }}>
-                <TaskCard task={task} viewMode={viewMode} />
+                <TaskCard task={task} viewMode={viewMode} onStatusUpdate={handleStatusUpdate} />
               </motion.div>
             ))}
             
