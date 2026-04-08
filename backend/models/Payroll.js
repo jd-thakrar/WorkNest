@@ -8,6 +8,7 @@ const PayrollSchema = new mongoose.Schema({
   allowances: { type: Number, default: 0 },
   gross: { type: Number, required: true },
   deductions: { type: Number, default: 0 },
+  lop: { type: Number, default: 0 },
   net: { type: Number, required: true },
   status: { type: String, enum: ['Pending', 'Processed', 'Paid'], default: 'Pending' },
   company: { type: String, required: true }

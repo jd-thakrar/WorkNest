@@ -1,7 +1,9 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Clock, History, CalendarCheck } from "lucide-react";
 import EmployeeLayout from "../../layouts/EmployeeLayout";
+import { useAuth } from "../../context/AuthContext";
+import { API_URL } from "../../config";
 
 // Components
 import LeaveHistoryTable from "../../components/employee/time-off/LeaveHistoryTable";
@@ -9,6 +11,53 @@ import ApplyLeaveForm from "../../components/employee/time-off/ApplyLeaveForm";
 import LeaveSummaryStrip from "../../components/employee/time-off/LeaveSummaryStrip";
 
 const TimeOff = () => {
+  const { user } = useAuth();
+  const [leaveStats, setLeaveStats] = useState(null);
+  const [leaveHistory, setLeaveHistory] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const fetchLeaves = async () => {
+    try {
+      const res = await fetch(`${API_URL}/employee-self/leaves`, {
+        headers: { "Authorization": `Bearer ${user.token}` }
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setLeaveStats(data.stats);
+        setLeaveHistory(data.requests);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (user) fetchLeaves();
+  }, [user]);
+
+  const handleRequestSubmit = async (formData) => {
+    try {
+      const res = await fetch(`${API_URL}/employee-self/apply-leave`, {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${user.token}` 
+        },
+        body: JSON.stringify(formData)
+      });
+      if (res.ok) {
+        fetchLeaves(); // Refresh data
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.error(err);
+      return false;
+    }
+  };
+
   const containerVariants = {
     hidden: { opacity: 0 },
     show: {
@@ -38,7 +87,7 @@ const TimeOff = () => {
       >
         {/* Row 1 — Balance Summary Strip */}
         <motion.div variants={itemVariants}>
-          <LeaveSummaryStrip />
+          <LeaveSummaryStrip stats={leaveStats} />
         </motion.div>
 
         {/* Row 2 — Main Operational Grid */}
@@ -62,7 +111,7 @@ const TimeOff = () => {
                   </button>
                </div>
                <div className="flex-1">
-                  <LeaveHistoryTable />
+                  <LeaveHistoryTable history={leaveHistory} />
                </div>
             </div>
 
@@ -83,7 +132,7 @@ const TimeOff = () => {
                   </div>
                   <div>
                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-1.5">Planned Time Off</p>
-                     <p className="text-[14px] font-bold text-[#042f2e] tracking-tight">Next: <span className="text-orange-600">Mar 24 - Family Trip</span></p>
+                     <p className="text-[14px] font-bold text-[#042f2e] tracking-tight">Next: <span className="text-orange-600">{leaveStats?.upcoming ? `${leaveStats.upcoming.range} — ${leaveStats.upcoming.type}` : 'No Approved Leaves'}</span></p>
                   </div>
                </div>
             </div>
@@ -91,7 +140,7 @@ const TimeOff = () => {
 
           {/* Column 3: Application Form */}
           <motion.div variants={itemVariants} className="lg:col-span-1">
-            <ApplyLeaveForm />
+            <ApplyLeaveForm onSubmit={handleRequestSubmit} stats={leaveStats} />
           </motion.div>
 
         </div>

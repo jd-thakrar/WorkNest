@@ -1,5 +1,5 @@
 import React from "react";
-import { CheckCircle2, AlertCircle, Clock } from "lucide-react";
+import { CheckCircle2, AlertCircle, Clock, Calendar } from "lucide-react";
 
 const AttendanceTimeline = ({ status }) => {
   return (
@@ -24,6 +24,12 @@ const AttendanceTimeline = ({ status }) => {
             </span>
           </div>
           <div className="flex items-center gap-1">
+            <div className="w-1.5 h-1.5 rounded-full bg-teal-400" />
+            <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest leading-none">
+              Leave
+            </span>
+          </div>
+          <div className="flex items-center gap-1">
             <div className="w-1.5 h-1.5 rounded-full bg-amber-400" />
             <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest leading-none">
               Late
@@ -44,13 +50,16 @@ const AttendanceTimeline = ({ status }) => {
                   ? "bg-slate-50 border border-slate-100 text-emerald-600"
                   : item.status === "late"
                     ? "bg-slate-50 border border-slate-100 text-amber-600"
-                    : item.status === "today"
-                      ? "bg-[#042f2e] text-white shadow-lg shadow-teal-900/10"
-                      : "bg-slate-50 border border-slate-100 text-slate-200"
+                    : item.status === "leave"
+                      ? "bg-teal-50 border border-teal-100 text-teal-600"
+                      : item.status === "today"
+                        ? "bg-[#042f2e] text-white shadow-lg shadow-teal-900/10"
+                        : "bg-slate-50 border border-slate-100 text-slate-200"
               }`}
             >
               {item.status === "present" && <CheckCircle2 size={14} />}
               {item.status === "late" && <AlertCircle size={14} />}
+              {item.status === "leave" && <Calendar size={14} />}
               {item.status === "today" && <Clock size={14} />}
               {item.status === "absent" && (
                 <div className="w-1 h-1 rounded-full bg-slate-200" />

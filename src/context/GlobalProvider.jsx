@@ -89,6 +89,7 @@ export const GlobalProvider = ({ children }) => {
             allowances: p.allowances, 
             gross: p.gross, 
             deductions: p.deductions, 
+            lop: p.lop || 0,
             net: p.net, 
             status: p.status 
           })));

@@ -23,7 +23,7 @@ const MonthlyAttendance = ({ history }) => {
     
     let status = 'Upcoming';
     if (dayOfWeek === 0) status = 'Weekend'; // Sunday Only
-    else if (record) status = record.status === 'COMPLETED' || record.status === 'ACTIVE' || record.status === 'ON_BREAK' ? 'Present' : record.status;
+    else if (record) status = (record.status === 'COMPLETED' || record.status === 'ACTIVE' || record.status === 'ON_BREAK') ? 'Present' : (record.status === 'ON_LEAVE' ? 'Leave' : record.status);
     else if (new Date(currentYear, currentMonth, dayNum) < new Date().setHours(0,0,0,0)) status = 'Absent';
 
     return { day: dayNum, status };
@@ -77,11 +77,13 @@ const MonthlyAttendance = ({ history }) => {
                 ${d.status === 'Present' ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-500 hover:text-white border border-emerald-100' : ''}
                 ${d.status === 'Absent' ? 'bg-rose-50 text-rose-600 hover:bg-rose-500 hover:text-white border border-rose-100 shadow-sm shadow-rose-50' : ''}
                 ${d.status === 'Late' ? 'bg-amber-50 text-amber-600 hover:bg-amber-500 hover:text-white border border-amber-100' : ''}
+                ${d.status === 'Leave' ? 'bg-teal-50 text-teal-600 hover:bg-teal-500 hover:text-white border border-teal-100' : ''}
                 ${d.status === 'Weekend' ? 'text-slate-300 bg-slate-50/50' : ''}
                 ${d.status === 'Upcoming' ? 'text-slate-400 opacity-40' : ''}
                `}>
                   {d.day}
-                  {d.status === 'Absent' && <div className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-rose-500 rounded-full border border-white" />}
+                  {(d.status === 'Absent') && <div className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-rose-500 rounded-full border border-white" />}
+                  {d.status === 'Leave' && <div className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-teal-400 rounded-full border border-white" />}
                </div>
             </div>
           ))}
@@ -94,6 +96,9 @@ const MonthlyAttendance = ({ history }) => {
          </div>
          <div className="flex items-center gap-2 text-[9px] font-black text-slate-400 uppercase tracking-widest">
             <div className="w-2.5 h-2.5 rounded-full bg-rose-500" /> Absent
+         </div>
+         <div className="flex items-center gap-2 text-[9px] font-black text-slate-400 uppercase tracking-widest">
+            <div className="w-2.5 h-2.5 rounded-full bg-teal-500" /> Leave
          </div>
          <div className="flex items-center gap-2 text-[9px] font-black text-slate-400 uppercase tracking-widest">
             <div className="w-2.5 h-2.5 rounded-full bg-amber-400" /> Late

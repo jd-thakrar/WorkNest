@@ -31,14 +31,23 @@ const LEAVE_STATUS_CONFIG = {
   Rejected: { color: "text-rose-600", bg: "bg-rose-50", border: "border-rose-100", icon: X },
 };
 
-const StatCard = ({ label, value, icon: Icon, color, bg }) => (
+const StatCard = ({ label, value, icon: Icon, color, bg, detail }) => (
   <motion.div
     whileHover={{ y: -5 }}
-    className="bg-white p-6 rounded-[32px] border border-gray-100 shadow-sm flex items-center justify-between"
+    className="bg-white p-6 rounded-[32px] border border-gray-100 shadow-sm flex items-center justify-between group relative"
   >
     <div className="space-y-1">
       <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none">{label}</p>
-      <p style={{ fontFamily: "'Outfit', sans-serif" }} className="text-3xl font-black text-[#042f2e]">{value}</p>
+      <div className="flex items-baseline gap-2">
+         <p style={{ fontFamily: "'Outfit', sans-serif" }} className="text-3xl font-black text-[#042f2e]">{value}</p>
+         {detail && <span className="text-[8px] font-bold text-teal-600 bg-teal-50 px-2 py-0.5 rounded-full uppercase tracking-tighter opacity-0 group-hover:opacity-100 transition-opacity">Active</span>}
+      </div>
+      {detail && (
+         <div className="absolute top-full left-0 right-0 mt-2 p-4 bg-[#042f2e] text-white rounded-3xl text-[9px] font-bold z-50 opacity-0 group-hover:opacity-100 transition-all pointer-events-none shadow-2xl border border-teal-500/20">
+            <p className="text-teal-400 uppercase tracking-widest mb-2 border-b border-white/10 pb-1">Current Personnel on Leave</p>
+            <p className="leading-relaxed">{detail}</p>
+         </div>
+      )}
     </div>
     <div className={`w-14 h-14 rounded-2xl ${bg} flex items-center justify-center shrink-0 shadow-sm`}>
       <Icon size={28} className={color} />
@@ -53,6 +62,7 @@ const STATUS_CONFIG = {
   Late: { label: "Late Day", color: "text-rose-600", bg: "bg-rose-50", border: "border-rose-100", dot: "bg-rose-500" },
   Present: { label: "Present", color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-100", dot: "bg-emerald-500" },
   Absent: { label: "Absent", color: "text-rose-600", bg: "bg-rose-50", border: "border-rose-100", dot: "bg-rose-500" },
+  ON_LEAVE: { label: "Authorized Absence", color: "text-teal-600", bg: "bg-teal-50", border: "border-teal-100", dot: "bg-teal-500" },
 };
 
 const AttendanceTable = ({ data, onOverride }) => {
@@ -131,98 +141,59 @@ const AttendanceTable = ({ data, onOverride }) => {
   );
 };
 
-const LeaveRequestsTable = ({ data, employees, onApprove, onReject }) => {
+const LeaveRequestsTable = ({ data, employees, onApprove, onReject, onEdit }) => {
   return (
     <div className="overflow-x-auto thin-scroll">
       <table className="w-full text-left">
         <thead>
-          <tr className="bg-gray-50/50 border-b border-gray-100">
-            <th className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">
-              Employee
-            </th>
-            <th className="px-6 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">
-              Leave Details
-            </th>
-            <th className="px-6 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">
-              Duration
-            </th>
-            <th className="px-6 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">
-              Reason
-            </th>
-            <th className="px-6 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">
-              Status
-            </th>
-            <th className="px-8 py-5 text-right text-[10px] font-black text-gray-400 uppercase tracking-widest">
-              Actions
-            </th>
+          <tr className="bg-gray-50/50 border-b border-gray-100 uppercase tracking-widest text-[9px] font-black text-gray-400">
+            <th className="px-8 py-5">Employee</th>
+            <th className="px-6 py-5">Leave Details</th>
+            <th className="px-6 py-5">Duration</th>
+            <th className="px-6 py-5">Reason</th>
+            <th className="px-6 py-5">Status</th>
+            <th className="px-8 py-5 text-right">Actions</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-50">
           {data.map((req) => {
             const emp = employees.find((e) => e.id === req.empId);
-            const style =
-              LEAVE_STATUS_CONFIG[req.status] || LEAVE_STATUS_CONFIG["Pending"];
+            const style = LEAVE_STATUS_CONFIG[req.status] || LEAVE_STATUS_CONFIG["Pending"];
 
             return (
-              <tr
-                key={req.id}
-                className="hover:bg-teal-50/10 transition-colors"
-              >
+              <tr key={req.id} className="hover:bg-teal-50/10 transition-colors group">
                 <td className="px-8 py-5">
                   <div className="flex items-center gap-4">
-                    <img
-                      src={emp?.avatar}
-                      alt=""
-                      className="w-10 h-10 rounded-xl border border-gray-100"
-                    />
-                    <div className="text-sm font-bold text-[#042f2e]">
-                      {emp?.name}
-                    </div>
+                    <img src={emp?.avatar} alt="" className="w-10 h-10 rounded-xl border border-gray-100" />
+                    <div className="text-sm font-bold text-[#042f2e]">{emp?.name}</div>
                   </div>
                 </td>
                 <td className="px-6 py-5">
                   <p className="text-sm font-bold text-[#042f2e]">{req.type}</p>
                   <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-0.5">
-                    {req.from} to {req.to}
+                    {new Date(req.from).toLocaleDateString()} to {new Date(req.to).toLocaleDateString()}
                   </p>
                 </td>
-                <td className="px-6 py-5 font-black text-sm text-teal-600">
-                  {req.days} Days
+                <td className="px-6 py-5 font-black text-sm text-teal-600">{req.days} Days</td>
+                <td className="px-6 py-5">
+                  <p className="text-xs text-gray-500 max-w-[200px] line-clamp-2 italic">“{req.reason}”</p>
                 </td>
                 <td className="px-6 py-5">
-                  <p className="text-xs text-gray-500 max-w-[200px] line-clamp-2 italic">
-                    “{req.reason}”
-                  </p>
-                </td>
-                <td className="px-6 py-5">
-                  <span
-                    className={`inline-flex items-center gap-1.5 px-3 py-1.2 rounded-xl text-[9px] font-black uppercase tracking-widest border ${style.bg} ${style.color} ${style.border}`}
-                  >
+                  <span className={`inline-flex items-center gap-1.5 px-3 py-1.2 rounded-xl text-[9px] font-black uppercase tracking-widest border ${style.bg} ${style.color} ${style.border}`}>
                     <style.icon size={12} />
                     {req.status}
                   </span>
                 </td>
                 <td className="px-8 py-5 text-right">
-                  {req.status === "Pending" ? (
-                    <div className="flex items-center justify-end gap-2">
-                      <button
-                        onClick={() => onApprove(req.id)}
-                        className="w-9 h-9 flex items-center justify-center bg-emerald-50 text-emerald-600 rounded-xl hover:bg-emerald-500 hover:text-white transition-all shadow-sm"
-                      >
-                        <Check size={18} />
-                      </button>
-                      <button
-                        onClick={() => onReject(req.id)}
-                        className="w-9 h-9 flex items-center justify-center bg-rose-50 text-rose-600 rounded-xl hover:bg-rose-500 hover:text-white transition-all shadow-sm"
-                      >
-                        <X size={18} />
-                      </button>
-                    </div>
-                  ) : (
-                    <button className="text-gray-300 hover:text-gray-500 transition-colors">
-                      <Info size={20} />
-                    </button>
-                  )}
+                  <div className="flex items-center justify-end gap-2">
+                    {req.status === "Pending" && (
+                      <>
+                        <button onClick={() => onApprove(req.id)} className="w-8 h-8 flex items-center justify-center bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-500 hover:text-white transition-all shadow-sm"><Check size={16} /></button>
+                        <button onClick={() => onReject(req.id)} className="w-8 h-8 flex items-center justify-center bg-rose-50 text-rose-600 rounded-lg hover:bg-rose-500 hover:text-white transition-all shadow-sm"><X size={16} /></button>
+                      </>
+                    )}
+                    <button onClick={() => onEdit(req)} className="w-8 h-8 flex items-center justify-center bg-slate-50 text-slate-400 rounded-lg hover:bg-[#042f2e] hover:text-white transition-all shadow-sm"><Edit3 size={16} /></button>
+                  </div>
                 </td>
               </tr>
             );
@@ -237,29 +208,22 @@ const LeaveRequestsTable = ({ data, employees, onApprove, onReject }) => {
 
 const Attendance = () => {
   const { user } = useAuth();
-  const {
-    employees,
-    attendance,
-    setAttendance,
-    leaveRequests,
-    setLeaveRequests,
-  } = useGlobal();
+  const { employees, attendance, setAttendance, leaveRequests, setLeaveRequests } = useGlobal();
   const [activeTab, setActiveTab] = useState("daily");
   const [search, setSearch] = useState("");
-  const [date, setDate] = useState("2026-03-15");
+  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [editingLeave, setEditingLeave] = useState(null);
 
   // Stats
-  const statCounts = useMemo(
-    () => ({
-      present: attendance.filter(
-        (a) => a.status === "Present" || a.status === "Late",
-      ).length,
-      absent: attendance.filter((a) => a.status === "Absent").length,
-      leave: attendance.filter((a) => a.status === "On Leave").length,
-      late: attendance.filter((a) => a.status === "Late").length,
-    }),
-    [attendance],
-  );
+  const statCounts = useMemo(() => {
+    const todayRecords = attendance.filter(a => a.date === date);
+    return {
+      present: todayRecords.filter((a) => ["Present", "Late", "ACTIVE", "COMPLETED", "ON_BREAK"].includes(a.status)).length,
+      absent: todayRecords.filter((a) => a.status === "Absent").length,
+      leave: todayRecords.filter((a) => a.status === "ON_LEAVE").length,
+      late: todayRecords.filter((a) => a.status === "Late").length,
+    };
+  }, [attendance, date]);
 
   const handleApprove = async (id) => {
     try {
@@ -267,9 +231,11 @@ const Attendance = () => {
          method: "PUT", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${user.token}` },
          body: JSON.stringify({ status: "Approved" })
       });
-      setLeaveRequests((prev) => prev.map((r) => (r.id === id ? { ...r, status: "Approved" } : r)));
-      const req = leaveRequests.find((r) => r.id === id);
-      if (req) setAttendance((prev) => prev.map((a) => a.empId === req.empId ? { ...a, status: "On Leave" } : a));
+      setLeaveRequests((prev) => prev.map((r) => (r.id === id || r._id === id) ? { ...r, status: "Approved" } : r));
+      // Trigger a soft refresh of attendance to show new leave records
+      const attRes = await fetch(`${API_URL}/attendance`, { headers: { "Authorization": `Bearer ${user.token}` } });
+      const attData = await attRes.json();
+      if (attRes.ok) setAttendance(attData);
     } catch(err) { console.error(err); }
   };
 
@@ -279,24 +245,40 @@ const Attendance = () => {
          method: "PUT", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${user.token}` },
          body: JSON.stringify({ status: "Rejected" })
       });
-      setLeaveRequests((prev) => prev.map((r) => (r.id === id ? { ...r, status: "Rejected" } : r)));
+      setLeaveRequests((prev) => prev.map((r) => (r.id === id || r._id === id) ? { ...r, status: "Rejected" } : r));
+      // Remove virtual records from local state
+      setAttendance(prev => prev.filter(a => !a._id.includes(`leave_${id}`)));
     } catch (err){ console.error(err); }
   };
 
-  const activeData =
-    activeTab === "daily"
-      ? attendance.filter((a) =>
-          employees
-            .find((e) => e.id === a.empId)
-            ?.name.toLowerCase()
-            .includes(search.toLowerCase()),
-        )
-      : leaveRequests.filter((r) =>
-          employees
-            .find((e) => e.id === r.empId)
-            ?.name.toLowerCase()
-            .includes(search.toLowerCase()),
-        );
+  const handleUpdateLeave = async (e) => {
+     e.preventDefault();
+     try {
+        const id = editingLeave.id || editingLeave._id;
+        const res = await fetch(`${API_URL}/attendance/leaves/${id}`, {
+           method: "PUT", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${user.token}` },
+           body: JSON.stringify(editingLeave)
+        });
+        if (res.ok) {
+           const updated = await res.json();
+           setLeaveRequests(prev => prev.map(r => (r.id === updated._id || r._id === updated._id) ? { ...r, ...updated, id: updated._id } : r));
+           
+           if (updated.status === 'Rejected') {
+              setAttendance(prev => prev.filter(a => !a._id.includes(`leave_${id}`)));
+           } else {
+              // Re-fetch to sync new dates/approve status
+              const attRes = await fetch(`${API_URL}/attendance`, { headers: { "Authorization": `Bearer ${user.token}` } });
+              const attData = await attRes.json();
+              if (attRes.ok) setAttendance(attData);
+           }
+           setEditingLeave(null);
+        }
+     } catch (err) { console.error(err); }
+  };
+
+  const activeData = activeTab === "daily" 
+    ? attendance.filter((a) => a.date === date && employees.find((e) => e.id === a.empId)?.name.toLowerCase().includes(search.toLowerCase()))
+    : leaveRequests.filter((r) => employees.find((e) => e.id === r.empId)?.name.toLowerCase().includes(search.toLowerCase()));
 
   return (
     <AdminLayout title="Attendance & Workforce">
@@ -355,11 +337,12 @@ const Attendance = () => {
             bg="bg-rose-50"
           />
           <StatCard
-            label="On Leave"
+            label="Staff on Leave Today"
             value={statCounts.leave}
             icon={Users}
             color="text-teal-600"
             bg="bg-teal-50"
+            detail={attendance.filter(a => a.status === 'ON_LEAVE').map(a => a.empId?.firstName ? `${a.empId.firstName} ${a.empId.lastName}` : "Employee").join(', ') || "Everyone is working today!"}
           />
           <StatCard
             label="Late Entries"
@@ -421,9 +404,7 @@ const Attendance = () => {
                     data={activeData}
                     employees={employees}
                     onOverride={(row) =>
-                      alert(
-                        `Override requested for ${employees.find((e) => e.id === row.empId)?.name}`,
-                      )
+                      alert(`Override for ${employees.find((e) => e.id === row.empId)?.name}`)
                     }
                   />
                 ) : (
@@ -432,6 +413,7 @@ const Attendance = () => {
                     employees={employees}
                     onApprove={handleApprove}
                     onReject={handleReject}
+                    onEdit={setEditingLeave}
                   />
                 )}
 
@@ -440,9 +422,7 @@ const Attendance = () => {
                     <div className="w-16 h-16 bg-gray-50 rounded-2xl flex items-center justify-center mx-auto text-gray-300">
                       <Search size={32} />
                     </div>
-                    <p className="text-sm font-bold text-gray-400 uppercase tracking-widest">
-                      No matching records found
-                    </p>
+                    <p className="text-sm font-bold text-gray-400 uppercase tracking-widest">No matching records found</p>
                   </div>
                 )}
               </motion.div>
@@ -450,6 +430,127 @@ const Attendance = () => {
           </div>
         </div>
       </div>
+
+      {/* Edit Leave Modal */}
+      <AnimatePresence>
+        {editingLeave && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
+            <motion.div 
+               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+               onClick={() => setEditingLeave(null)}
+               className="absolute inset-0 bg-[#042f2e]/40 backdrop-blur-sm" 
+            />
+            <motion.div
+               initial={{ opacity: 0, scale: 0.9, y: 20 }}
+               animate={{ opacity: 1, scale: 1, y: 0 }}
+               exit={{ opacity: 0, scale: 0.9, y: 20 }}
+               className="relative bg-white w-full max-w-lg rounded-[40px] shadow-2xl overflow-hidden border border-teal-500/10"
+            >
+               <div className="p-8 pb-4 flex items-center justify-between border-b border-gray-50">
+                  <div>
+                    <h3 className="text-xl font-bold text-[#042f2e]">Modify Request</h3>
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Executive Override</p>
+                  </div>
+                  <button onClick={() => setEditingLeave(null)} className="p-2 text-gray-400 hover:text-rose-500 transition-colors"><X size={20}/></button>
+               </div>
+               
+               <form onSubmit={handleUpdateLeave} className="p-8 space-y-6">
+                  <div className="space-y-2">
+                     <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Leave Category</label>
+                     <select 
+                        value={editingLeave.type}
+                        onChange={e => setEditingLeave({...editingLeave, type: e.target.value})}
+                        className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-3 text-sm font-bold text-[#042f2e] focus:outline-none focus:ring-4 focus:ring-teal-500/5 transition-all"
+                     >
+                        <option>Annual Leave</option>
+                        <option>Sick Leave</option>
+                        <option>Compensatory Off</option>
+                        <option>Bereavement</option>
+                     </select>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                     <div className="space-y-2">
+                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Effective From</label>
+                        <input 
+                           type="date"
+                           value={editingLeave.from ? new Date(editingLeave.from).toISOString().split('T')[0] : ''}
+                           onChange={e => setEditingLeave({...editingLeave, from: e.target.value})}
+                           className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-3 text-sm font-bold text-[#042f2e] focus:outline-none focus:ring-4 focus:ring-teal-500/5 transition-all"
+                        />
+                     </div>
+                     <div className="space-y-2">
+                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Effective To</label>
+                        <input 
+                           type="date"
+                           value={editingLeave.to ? new Date(editingLeave.to).toISOString().split('T')[0] : ''}
+                           onChange={e => setEditingLeave({...editingLeave, to: e.target.value})}
+                           className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-3 text-sm font-bold text-[#042f2e] focus:outline-none focus:ring-4 focus:ring-teal-500/5 transition-all"
+                        />
+                     </div>
+                  </div>
+
+                  <div className="space-y-2">
+                     <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Management Reason</label>
+                     <textarea 
+                        value={editingLeave.reason}
+                        onChange={e => setEditingLeave({...editingLeave, reason: e.target.value})}
+                        className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-3 text-sm font-bold text-[#042f2e] min-h-[100px] resize-none focus:outline-none focus:ring-4 focus:ring-teal-500/5 transition-all"
+                     />
+                  </div>
+
+                  <div className="flex items-center gap-3 pt-4">
+                     <button 
+                        type="button"
+                        onClick={async () => {
+                           const updated = {...editingLeave, status: 'Rejected'};
+                           setEditingLeave(updated);
+                           // Manually trigger update with the new status
+                           const res = await fetch(`${API_URL}/attendance/leaves/${updated.id || updated._id}`, {
+                              method: "PUT", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${user.token}` },
+                              body: JSON.stringify(updated)
+                           });
+                           if (res.ok) {
+                              const data = await res.json();
+                              setLeaveRequests(prev => prev.map(r => (r.id === data._id || r._id === data._id) ? { ...r, ...data, id: data._id } : r));
+                              setEditingLeave(null);
+                           }
+                        }}
+                        className="flex-1 py-4 bg-rose-50 text-rose-600 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-500 hover:text-white transition-all border border-rose-100"
+                     >
+                        Reject
+                     </button>
+                     <button 
+                        type="button"
+                        onClick={async () => {
+                           const updated = {...editingLeave, status: 'Approved'};
+                           setEditingLeave(updated);
+                           const res = await fetch(`${API_URL}/attendance/leaves/${updated.id || updated._id}`, {
+                              method: "PUT", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${user.token}` },
+                              body: JSON.stringify(updated)
+                           });
+                           if (res.ok) {
+                              const data = await res.json();
+                              setLeaveRequests(prev => prev.map(r => (r.id === data._id || r._id === data._id) ? { ...r, ...data, id: data._id } : r));
+                              setEditingLeave(null);
+                           }
+                        }}
+                        className="flex-1 py-4 bg-emerald-50 text-emerald-600 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-500 hover:text-white transition-all border border-emerald-100"
+                     >
+                        Approve
+                     </button>
+                     <button 
+                        type="submit"
+                        className="flex-[2] py-4 bg-[#042f2e] text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-teal-900 transition-all shadow-xl shadow-teal-900/10"
+                     >
+                        Save & Sync
+                     </button>
+                  </div>
+               </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </AdminLayout>
   );
 };

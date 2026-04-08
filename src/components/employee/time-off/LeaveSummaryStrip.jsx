@@ -1,12 +1,12 @@
 import React from "react";
 import { TreePalm, HeartPulse, ShieldCheck, Sun } from "lucide-react";
 
-const LeaveSummaryStrip = () => {
+const LeaveSummaryStrip = ({ stats }) => {
   const balances = [
-    { label: "Annual Leave", count: 12, total: 15, icon: TreePalm, color: "text-teal-600", detail: "Days Available" },
-    { label: "Sick Leave", count: 4, total: 8, icon: HeartPulse, color: "text-rose-600", detail: "Available" },
-    { label: "Casual Leave", count: 2, total: 5, icon: Sun, color: "text-amber-600", detail: "Personal" },
-    { label: "Comp Off", count: 1, total: 3, icon: ShieldCheck, color: "text-blue-600", detail: "Overtime" },
+    { label: "Annual Leave", count: stats?.balance ?? 24, total: stats?.total ?? 24, icon: TreePalm, color: "text-teal-600", detail: "Days Available" },
+    { label: "Pending", count: stats?.pending ?? 0, total: 0, icon: HeartPulse, color: "text-rose-600", detail: "In Review" },
+    { label: "Used", count: stats?.used ?? 0, total: stats?.total ?? 24, icon: Sun, color: "text-amber-600", detail: "Approved" },
+    { label: "Entitlements", count: stats?.total ?? 24, total: 24, icon: ShieldCheck, color: "text-blue-600", detail: "Yearly Quota" },
   ];
 
   return (

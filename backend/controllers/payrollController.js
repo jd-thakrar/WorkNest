@@ -1,6 +1,7 @@
 import Payroll from '../models/Payroll.js';
 import Employee from '../models/Employee.js';
 import Notification from '../models/Notification.js';
+import LeaveRequest from '../models/LeaveRequest.js';
 
 export const getPayroll = async (req, res) => {
   try {
@@ -14,18 +15,37 @@ export const getPayroll = async (req, res) => {
 
 export const processPayroll = async (req, res) => {
   try {
-    const { month } = req.body;
-    // VERY BASIC GENERATOR for the demo:
-    // It looks at all active full-time employees and generates a base paycheck.
+    const { month } = req.body; // e.g., "April 2026"
     const employees = await Employee.find({ company: req.user.company, type: 'Full-time' });
     
+    // Parse month/year for leave filtering
+    const [monthName, year] = month.split(' ');
+    const monthIndex = new Date(`${monthName} 1, ${year}`).getMonth();
+    
     for (let emp of employees) {
-       const basic = Number(emp.salary || emp.basicSalary || emp.basic || 25000);
+       const basic = Number(emp.contractualSalary || emp.basic || 25000);
        const hra = Number(emp.hra || 10000);
        const otherArrSum = Array.isArray(emp.otherAllowances) ? emp.otherAllowances.reduce((sum, item) => sum + Number(item.amount || 0), 0) : 0;
        const other = Number((emp.travel || 0) + (emp.daily || 0)) + otherArrSum;
        const gross = basic + hra + other;
        
+       // Leave & LOP Engine
+       const monthlyLeaves = await LeaveRequest.find({
+          empId: emp._id,
+          status: 'Approved'
+       });
+
+       // Filter leaves belonging to this month
+       const currentMonthLeaves = monthlyLeaves.filter(l => {
+          const lDate = new Date(l.from);
+          return lDate.getMonth() === monthIndex && lDate.getFullYear() === parseInt(year);
+       });
+
+       const totalApprovedDays = currentMonthLeaves.reduce((sum, l) => sum + l.days, 0);
+       let lopDays = totalApprovedDays > 2 ? totalApprovedDays - 2 : 0;
+       const dailyRate = gross / 30;
+       const lopValue = Math.round(lopDays * dailyRate);
+
        const pfPercentage = Number(emp.pfEmployee || 0);
        const pfValue = emp.pfEnabled ? (basic * (pfPercentage / 100)) : 0;
        const ptValue = emp.profTax ? 200 : 0;
@@ -43,11 +63,11 @@ export const processPayroll = async (req, res) => {
        const otherDeductionsSum = Array.isArray(emp.otherDeductions) ? emp.otherDeductions.reduce((sum, item) => sum + Number(item.amount || 0), 0) : 0;
        
        const deduct = pfValue + ptValue + tds + otherDeductionsSum;
-       const net = gross - deduct;
+       const net = gross - deduct - lopValue;
 
        await Payroll.findOneAndUpdate(
          { empId: emp._id, month, company: req.user.company },
-         { empId: emp._id, month, basic, hra, allowances: other, gross, deductions: deduct, net, company: req.user.company },
+         { empId: emp._id, month, basic, hra, allowances: other, gross, deductions: deduct, lop: lopValue, net, company: req.user.company },
          { upsert: true, new: true }
        );
     }

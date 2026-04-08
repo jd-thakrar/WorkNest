@@ -83,9 +83,30 @@ export const getEmployeeDashboard = async (req, res) => {
       lastPunch: record?.checkIn || 'Not Punched',
       timer: '00:00:00',
       notes: record?.notes || '',
-      weeklyStatus: history.slice(0, 7).map(a => ({
-         day: new Date(a.date).toLocaleDateString('en-US', { weekday: 'narrow' }),
-         status: a.status === 'COMPLETED' || a.status === 'ACTIVE' || a.status === 'Late' ? 'present' : 'absent'
+      weeklyStatus: await Promise.all([6,5,4,3,2,1,0].map(async daysAgo => {
+         const d = new Date(); d.setDate(d.getDate() - daysAgo);
+         const dayIso = d.toISOString().split('T')[0];
+         const dayAtt = history.find(a => a.date === dayIso);
+         
+         if (dayAtt) {
+            return {
+               day: d.toLocaleDateString('en-US', { weekday: 'narrow' }),
+               status: (dayAtt.status === 'COMPLETED' || dayAtt.status === 'ACTIVE' || dayAtt.status === 'Late') ? 'present' : (dayAtt.status === 'ON_LEAVE' ? 'leave' : 'absent')
+            };
+         }
+         
+         // No attendance record, check for approved leaves
+         const hasLeave = await LeaveRequest.findOne({
+            empId: employee._id,
+            status: 'Approved',
+            from: { $lte: dayIso },
+            to: { $gte: dayIso }
+         });
+
+         return {
+            day: d.toLocaleDateString('en-US', { weekday: 'narrow' }),
+            status: hasLeave ? 'leave' : 'absent'
+         };
       }))
     };
 
@@ -268,6 +289,86 @@ export const punchAttendance = async (req, res) => {
   }
 };
 
+// @desc    Get all leave requests and stats for the logged-in employee
+// @route   GET /api/employee-self/leaves
+// @access  Private/Employee
+export const getEmployeeLeaves = async (req, res) => {
+  try {
+    const employee = await Employee.findOne({ user: req.user._id });
+    if (!employee) return res.status(404).json({ message: 'Personnel record not found' });
+
+    const requests = await LeaveRequest.find({ empId: employee._id }).sort({ createdAt: -1 });
+
+    // Enterprise Calculation Engine
+    const QUOTA = 24; // Yearly Baseline
+    const approvedUsage = requests
+      .filter(r => r.status === 'Approved' && new Date(r.from).getFullYear() === new Date().getFullYear())
+      .reduce((acc, r) => acc + r.days, 0);
+    
+    const pendingUsage = requests
+      .filter(r => r.status === 'Pending')
+      .reduce((acc, r) => acc + r.days, 0);
+
+    const upcoming = requests
+      .filter(r => r.status === 'Approved' && new Date(r.from) >= new Date())
+      .sort((a, b) => new Date(a.from) - new Date(b.from))[0];
+
+    res.json({
+      stats: {
+        total: QUOTA,
+        used: approvedUsage,
+        balance: QUOTA - approvedUsage,
+        pending: pendingUsage,
+        upcoming: upcoming ? { 
+           range: `${new Date(upcoming.from).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} - ${new Date(upcoming.to).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`,
+           type: upcoming.type
+        } : null
+      },
+      requests: requests.map(r => ({
+        id: r._id,
+        type: r.type,
+        from: r.from,
+        to: r.to,
+        days: r.days,
+        status: r.status,
+        reason: r.reason,
+        appliedDate: new Date(r.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
+      }))
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Apply for new leave
+// @route   POST /api/employee-self/apply-leave
+// @access  Private/Employee
+export const applyLeave = async (req, res) => {
+  try {
+    const { type, from, to, days, reason } = req.body;
+    const employee = await Employee.findOne({ user: req.user._id });
+    if (!employee) return res.status(404).json({ message: 'Personnel record not found' });
+
+    // Verification: Days must be positive
+    if (days <= 0) return res.status(400).json({ message: 'Invalid leave duration' });
+
+    const leave = await LeaveRequest.create({
+      empId: employee._id,
+      type,
+      from,
+      to,
+      days,
+      reason,
+      company: employee.company,
+      status: 'Pending'
+    });
+
+    res.status(201).json({ message: 'Application Transmitted', leave });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 // @desc    Toggle break for employee
 // @route   POST /api/employee-self/break
 // @access  Private/Employee
@@ -341,7 +442,35 @@ export const getEmployeeAttendance = async (req, res) => {
        return { ...r._doc, workedHours: worked };
     });
 
-    res.json(mappedHistory);
+    // Inject Leaves
+    const leaves = await LeaveRequest.find({
+       empId: employee._id,
+       status: 'Approved'
+    });
+
+    const leaveRecords = [];
+    leaves.forEach(l => {
+       const start = new Date(l.from);
+       const end = new Date(l.to);
+       let curr = new Date(start);
+       while (curr <= end) {
+          // Only add if no attendance record exists for this date
+          if (!records.some(r => r.date === curr.toISOString().split('T')[0])) {
+             leaveRecords.push({
+                _id: `l_${l._id}_${curr.getTime()}`,
+                date: curr.toISOString().split('T')[0],
+                status: 'ON_LEAVE',
+                checkIn: '--',
+                checkOut: '--',
+                workedHours: '0h 0m',
+                isLeave: true
+             });
+          }
+          curr.setDate(curr.getDate() + 1);
+       }
+    });
+
+    res.json([...mappedHistory, ...leaveRecords].sort((a,b) => b.date.localeCompare(a.date)));
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

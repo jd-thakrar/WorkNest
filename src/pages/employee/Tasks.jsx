@@ -17,6 +17,7 @@ const Tasks = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("All");
   const [viewMode, setViewMode] = useState("grid");
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     const fetchTasks = async () => {
@@ -56,7 +57,12 @@ const Tasks = () => {
     }
   };
 
-  const filteredTasks = tasks.filter(t => activeTab === 'All' || t.status === activeTab);
+  const filteredTasks = tasks.filter(t => {
+     const matchesTab = activeTab === 'All' || t.status === activeTab;
+     const matchesSearch = t.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                           (t.description || "").toLowerCase().includes(searchQuery.toLowerCase());
+     return matchesTab && matchesSearch;
+  });
 
   // Sync logical counts with Admin labels: Pending, In Progress, Completed
   const taskCounts = {
@@ -109,6 +115,8 @@ const Tasks = () => {
                 <Search size={16} className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-teal-600 transition-colors" />
                 <input 
                   type="text" 
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search through 10 deliverables..."
                   className="w-full pl-12 pr-6 py-3.5 bg-white border border-slate-200 rounded-xl text-[13px] font-medium text-slate-900 focus:outline-none focus:ring-4 focus:ring-teal-500/5 focus:border-teal-500/30 transition-all shadow-sm"
                 />

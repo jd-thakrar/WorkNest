@@ -43,7 +43,9 @@ const calcPayrollRow = (empId, employees, financials, daysInMonth = 30) => {
   const pf = (emp.type === 'Freelancer' || !emp.pfEnabled) ? 0 : (f.basic * (emp.pfEmployee || 12) / 100);
   const pt = (emp.type === 'Freelancer' || !emp.profTax) ? 0 : 200;
   const loanDeduct = f.loan?.active ? f.loan.emi : 0;
-  const lwpDeduct = (gross / daysInMonth) * (f.lwp || 0);
+  
+  // Use backend calculated LOP if available, otherwise fallback to draft calculation
+  const lwpDeduct = f.lop !== undefined ? f.lop : ((gross / daysInMonth) * (f.lwp || 0));
   
   // TDS Calculation (Simplified Slab)
   let tds = 0;
