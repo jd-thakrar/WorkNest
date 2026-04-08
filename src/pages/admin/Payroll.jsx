@@ -6,7 +6,7 @@ import {
   ChevronRight, Info, AlertCircle, TrendingUp,
   User, Landmark, Briefcase, MinusCircle, 
   PlusCircle, CheckCircle2, MoreHorizontal,
-  Printer, X, ArrowUpRight
+  Printer, X, ArrowUpRight, Receipt, Edit2, Save
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGlobal } from '../../context/GlobalContext.jsx';
@@ -24,62 +24,40 @@ const calcPayrollRow = (empId, employees, financials, daysInMonth = 30) => {
   const emp = employees.find(e => e.id === empId);
   if (!emp) return null;
 
-  const isDraft = !financials.find(fin => fin.id === empId && fin.month === (window.currentPayrollCycle || 'March 2026'));
-  const f = financials.find(fin => fin.id === empId && fin.month === (window.currentPayrollCycle || 'March 2026')) || {
-    basic: emp.type === 'Freelancer' ? emp.baseSalary : emp.baseSalary,
-    hra: emp.type === 'Freelancer' ? 0 : emp.hraAmount,
-    allowances: emp.type === 'Freelancer' ? 0 : emp.totalAllowances,
-    perqs: [],
-    lwp: 0,
-    tds: false,
-    loan: null
-  };
+  const f = financials.find(fin => fin.id === empId && fin.month === (window.currentPayrollCycle || 'March 2026'));
+  const isDraft = !f;
   
-  // Earnings
-  const perqTotal = (f.perqs || []).reduce((acc, curr) => acc + (curr.mode === 'fixed' ? curr.value : (f.basic * curr.value / 100)), 0);
-  const gross = f.basic + f.hra + f.allowances + perqTotal;
+  const basic = f?.basic || emp.baseSalary;
+  const hra = f?.hra || (emp.type === 'Freelancer' ? 0 : emp.hraAmount);
+  const allowances = f?.allowances || (emp.type === 'Freelancer' ? 0 : emp.totalAllowances);
+  const gross = f?.gross || (basic + hra + allowances);
   
-  // Deductions
-  const pf = (emp.type === 'Freelancer' || !emp.pfEnabled) ? 0 : (f.basic * (emp.pfEmployee || 12) / 100);
+  const pf = (emp.type === 'Freelancer' || !emp.pfEnabled) ? 0 : (basic * (emp.pfEmployee || 12) / 100);
   const pt = (emp.type === 'Freelancer' || !emp.profTax) ? 0 : 200;
-  const loanDeduct = f.loan?.active ? f.loan.emi : 0;
-  
-  // Use backend calculated LOP if available, otherwise fallback to draft calculation
-  const lwpDeduct = f.lop !== undefined ? f.lop : ((gross / daysInMonth) * (f.lwp || 0));
-  
-  // TDS Calculation (Simplified Slab)
-  let tds = 0;
-  if (emp.tds) {
-    if (emp.type === 'Freelancer') {
-      tds = gross * 0.10; // Flat 10% TDS for contractors
-    } else {
-      const annualTaxable = (gross * 12) - (pf * 12) - 50000; // 50k Standard Deduction
-      if (annualTaxable > 1500000) tds = annualTaxable * 0.25 / 12;
-      else if (annualTaxable > 1000000) tds = annualTaxable * 0.20 / 12;
-      else if (annualTaxable > 700000) tds = annualTaxable * 0.10 / 12;
-      else tds = annualTaxable * 0.05 / 12;
-      if (tds < 0) tds = 0;
-    }
-  }
+  const draftStatutory = pf + pt + (emp.tds ? (gross * 0.10) : 0);
 
-  const otherDeductions = emp.totalOtherDeduct || 0;
-  const deductions = pf + pt + loanDeduct + lwpDeduct + tds + otherDeductions;
-  const net = gross - deductions;
+  const statutory = f?.deductions !== undefined ? f.deductions : draftStatutory;
+  const loanDeduct = f?.loanDeduction || 0;
+  const reimbursements = f?.reimbursements || 0;
+  const lwpDeduct = f?.lop || 0;
+  
+  const totalDeductions = statutory + loanDeduct + lwpDeduct;
+  const net = f?.net || (gross + reimbursements - totalDeductions);
 
   return {
     id: empId,
     emp,
-    financials: f,
-    basic: f.basic,
+    financials: f || {},
+    basic,
     gross,
-    allowances: f.hra + f.allowances,
-    perqs: perqTotal,
-    deductions,
+    allowances: hra + allowances,
+    reimbursements,
+    statutory, // This represents backend's 'f.deductions'
     loan: loanDeduct,
-    statutory: pf + pt + tds,
     lwpDeduct,
+    totalDeductions,
     net,
-    status: isDraft ? 'Draft' : (f.status === 'Paid' ? 'Paid' : (f.lwp > 0 ? 'Hold' : 'Calculated'))
+    status: isDraft ? 'Draft' : (f.status === 'Paid' ? 'Paid' : 'Calculated')
   };
 };
 
@@ -108,43 +86,73 @@ const StatCard = ({ type, value }) => {
 };
 
 const PayrollDrawer = ({ data, onClose }) => {
+  const { user } = useAuth();
+  const [activeLoan, setActiveLoan] = React.useState(null);
+
+  React.useEffect(() => {
+    // Fetch active loans for this employee to show remaining balance
+    if (!data) return;
+    const fetchLoanInfo = async () => {
+      try {
+         const res = await fetch(`${API_URL}/finance/requests`, {
+            headers: { 'Authorization': `Bearer ${user.token}` }
+         });
+         if (!res.ok) return;
+         const claims = await res.json();
+         // Find total active loans for this emp
+         const loans = claims.filter(c => c.type === 'Loan' && c.status === 'Approved' && c.empId._id === data.emp.id && c.remainingMonths > 0);
+         if (loans.length > 0) {
+            const totalRemaining = loans.reduce((acc, l) => acc + (l.monthlyEMI * l.remainingMonths), 0);
+            const totalEmi = loans.reduce((acc, l) => acc + l.monthlyEMI, 0);
+            const maxTenure = Math.max(...loans.map(l => l.remainingMonths));
+            setActiveLoan({ rem: maxTenure, bal: totalRemaining, emi: totalEmi });
+         }
+      } catch (err) {}
+    };
+    fetchLoanInfo();
+  }, [data, user.token]);
+
   if (!data) return null;
   const f = data.financials;
 
   return (
-    <motion.div initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} transition={{ type: 'spring', damping: 25, stiffness: 200 }} className="fixed top-16 bottom-0 right-0 w-full max-w-md bg-white shadow-2xl z-50 flex flex-col border-l border-gray-100">
-      <div className="p-8 border-b border-gray-50 flex items-center justify-between">
+    <motion.div initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} transition={{ type: 'spring', damping: 25, stiffness: 200 }} className="fixed top-16 bottom-0 right-0 w-full max-w-md bg-white shadow-2xl z-50 flex flex-col border-l border-gray-100 print:top-0 print:left-0 print:right-auto print:max-w-none print:w-auto print:h-auto print:shadow-none print:border-none print:z-[9999] print:bg-white print:p-8">
+      <div className="p-8 border-b border-gray-50 flex items-center justify-between print:border-b-2 print:pb-4 print:mb-8 print:p-0">
         <div className="flex items-center gap-4">
-          <img src={data.emp.avatar} className="w-12 h-12 rounded-2xl border border-gray-200 shadow-sm" alt="" />
+          <img src={data.emp.avatar} className="w-12 h-12 rounded-2xl border border-gray-200 shadow-sm print:hidden" alt="" />
           <div>
             <h3 className="text-lg font-black text-[#042f2e]">{data.emp.name}</h3>
-            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{data.emp.role}</p>
+            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{data.emp.role} • {f.month || "Current Month"}</p>
           </div>
         </div>
-        <button onClick={onClose} className="p-2 text-gray-300 hover:text-[#042f2e] transition-colors"><X size={24}/></button>
+        <div className="hidden print:block text-right">
+           <h1 className="text-2xl font-black text-[#042f2e] tracking-tighter">PAYSLIP</h1>
+           <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Confidential</p>
+        </div>
+        <button onClick={onClose} className="p-2 text-gray-300 hover:text-[#042f2e] transition-colors print:hidden"><X size={24}/></button>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-8 space-y-8">
+      <div className="flex-1 overflow-y-auto p-8 space-y-8 print:overflow-visible print:p-0">
         {/* Earnings */}
         <section>
           <div className="flex items-center gap-2 mb-4">
-            <div className="w-6 h-6 rounded-lg bg-teal-50 flex items-center justify-center"><PlusCircle size={14} className="text-teal-600" /></div>
+            <div className="w-6 h-6 rounded-lg bg-teal-50 flex items-center justify-center print:border print:border-teal-200"><PlusCircle size={14} className="text-teal-600" /></div>
             <h4 className="text-[10px] font-black uppercase tracking-widest text-[#042f2e]">Earnings Breakdown</h4>
           </div>
-          <div className="space-y-3 bg-gray-50/50 rounded-3xl p-5 border border-gray-100">
+          <div className="space-y-3 bg-gray-50/50 rounded-3xl p-5 border border-gray-100 print:bg-white print:border-gray-200 print:rounded-none">
              {[
                { l: 'Basic Salary', v: data.basic },
                { l: 'HRA & Allowances', v: data.allowances },
-               { l: 'Perquisites', v: data.perqs },
+               { l: 'Strategic Reimbursements', v: data.reimbursements },
              ].map(i => (
                <div key={i.l} className="flex justify-between text-sm">
                  <span className="font-medium text-gray-500">{i.l}</span>
-                 <span className="font-bold text-[#042f2e]">{formatCurr(i.v)}</span>
+                 <span className="font-bold text-teal-600">+{formatCurr(i.v)}</span>
                </div>
              ))}
              <div className="pt-3 border-t border-gray-200 mt-2 flex justify-between">
-                <span className="text-xs font-black uppercase tracking-widest text-teal-600">Gross Monthly</span>
-                <span className="text-base font-black text-teal-600">{formatCurr(data.gross)}</span>
+                <span className="text-xs font-black uppercase tracking-widest text-teal-600">Gross Payable</span>
+                <span className="text-base font-black text-teal-600">{formatCurr(data.gross + data.reimbursements)}</span>
              </div>
           </div>
         </section>
@@ -152,13 +160,13 @@ const PayrollDrawer = ({ data, onClose }) => {
         {/* Deductions */}
         <section>
           <div className="flex items-center gap-2 mb-4">
-            <div className="w-6 h-6 rounded-lg bg-rose-50 flex items-center justify-center"><MinusCircle size={14} className="text-rose-600" /></div>
+            <div className="w-6 h-6 rounded-lg bg-rose-50 flex items-center justify-center print:border print:border-rose-200"><MinusCircle size={14} className="text-rose-600" /></div>
             <h4 className="text-[10px] font-black uppercase tracking-widest text-[#042f2e]">Deduction Breakdown</h4>
           </div>
-          <div className="space-y-3 bg-gray-50/50 rounded-3xl p-5 border border-gray-100">
+          <div className="space-y-3 bg-gray-50/50 rounded-3xl p-5 border border-gray-100 print:bg-white print:border-gray-200 print:rounded-none">
              {[
                { l: 'Statutory (PF, PT, TDS)', v: data.statutory },
-               { l: 'Loan EMI Deduction', v: data.loan },
+               { l: 'Dynamic Loan EMI', v: data.loan },
                { l: 'Leave Impact (LWP)', v: data.lwpDeduct },
              ].map(i => (
                <div key={i.l} className="flex justify-between text-sm">
@@ -168,46 +176,188 @@ const PayrollDrawer = ({ data, onClose }) => {
              ))}
              <div className="pt-3 border-t border-gray-200 mt-2 flex justify-between">
                 <span className="text-xs font-black uppercase tracking-widest text-[#042f2e]">Total Deductions</span>
-                <span className="text-base font-black text-rose-700">{formatCurr(data.deductions)}</span>
+                <span className="text-base font-black text-rose-700">{formatCurr(data.totalDeductions)}</span>
              </div>
           </div>
         </section>
 
         {/* Loan Progress */}
-        {f.loan && (
-          <section className="bg-[#042f2e] text-white rounded-[32px] p-6 relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-24 h-24 bg-teal-500/10 blur-2xl -mr-12 -mt-12 pointer-events-none" />
+        {activeLoan && (
+          <section className="bg-[#042f2e] text-white rounded-[32px] p-6 relative overflow-hidden print:bg-white print:text-gray-900 print:border print:border-gray-200 print:rounded-lg">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-teal-500/10 blur-2xl -mr-12 -mt-12 pointer-events-none print:hidden" />
             <div className="flex items-center justify-between mb-4">
-              <h4 className="text-[10px] font-black uppercase tracking-widest text-teal-400">Active Loan Repayment</h4>
-              <Landmark size={16} className="text-teal-400" />
+              <h4 className="text-[10px] font-black uppercase tracking-widest text-teal-400 print:text-gray-500">Active Loan Repayment</h4>
+              <Landmark size={16} className="text-teal-400 print:text-gray-400" />
             </div>
-            <p className="text-2xl font-black mb-1">{formatCurr(f.loan.emi * f.loan.rem)}</p>
-            <p className="text-[10px] font-bold text-teal-100/50 uppercase tracking-widest mb-4">Remaining Balance</p>
-            <div className="space-y-1.5">
-               <div className="flex justify-between text-[9px] font-bold text-teal-400 uppercase tracking-widest">
+            <p className="text-2xl font-black mb-1 text-white print:text-black">{formatCurr(activeLoan.bal)}</p>
+            <p className="text-[10px] font-bold text-teal-100/50 uppercase tracking-widest mb-4 print:text-gray-400">Total Remaining Balance</p>
+            <div className="space-y-1.5 list-none">
+               <div className="flex justify-between text-[9px] font-bold text-teal-400 uppercase tracking-widest print:text-gray-600">
                   <span>Tenure Remaining</span>
-                  <span>{f.loan.rem} Months</span>
+                  <span>{activeLoan.rem} Months</span>
                </div>
-               <div className="h-1 bg-white/10 rounded-full overflow-hidden">
-                  <motion.div initial={{ width: 0 }} animate={{ width: `${(f.loan.rem / 24) * 100}%` }} className="h-full bg-teal-400" />
+               <div className="h-1 bg-white/10 rounded-full overflow-hidden print:hidden">
+                  <motion.div initial={{ width: 0 }} animate={{ width: `${(activeLoan.rem / 24) * 100}%` }} className="h-full bg-teal-400" />
                </div>
             </div>
           </section>
         )}
       </div>
 
-      <div className="p-8 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
+      <div className="p-8 bg-gray-50 border-t border-gray-100 flex items-center justify-between print:bg-transparent print:border-t-2 print:border-gray-300 print:p-0 print:pt-6 print:mt-10">
          <div>
             <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none mb-1">Net Payable</p>
             <p style={{ fontFamily: "'Outfit', sans-serif" }} className="text-2xl font-black text-[#042f2e]">{formatCurr(data.net)}</p>
          </div>
-         <button className="flex items-center gap-2 px-6 py-3 bg-[#042f2e] text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-teal-900 transition-all shadow-lg shadow-teal-900/10">
+         <button onClick={() => window.print()} className="flex items-center gap-2 px-6 py-3 bg-[#042f2e] text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-teal-900 transition-all shadow-lg shadow-teal-900/10 print:hidden">
             <Printer size={16} /> Print Slip
          </button>
+      </div>
+      
+      <style>{`
+        @media print {
+          body * { visibility: hidden; }
+          .z-\\[9999\\], .z-\\[9999\\] * { visibility: visible; }
+        }
+      `}</style>
+    </motion.div>
+  );
+};
+
+// ─── CLAIMS DRAWER ──────────────────────────────────────────────────────────
+
+const ClaimsDrawer = ({ onClose }) => {
+  const { user } = useAuth();
+  const [claims, setClaims] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  const [customAmounts, setCustomAmounts] = React.useState({});
+
+  const fetchClaims = async () => {
+    try {
+      const res = await fetch(`${API_URL}/payroll/claims`, {
+        headers: { "Authorization": `Bearer ${user.token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setClaims(data);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  React.useEffect(() => { fetchClaims(); }, []);
+
+  const handleUpdate = async (id, status, oldAmount) => {
+    try {
+      const finalAmount = customAmounts[id] !== undefined ? Number(customAmounts[id]) : oldAmount;
+      const res = await fetch(`${API_URL}/payroll/claims/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${user.token}` },
+        body: JSON.stringify({ status, amount: finalAmount })
+      });
+      if (res.ok) {
+        toast.success(`Claim ${status}`);
+        fetchClaims(); // Refresh list
+      }
+    } catch (err) {
+      toast.error('Failed to update claim');
+    }
+  };
+
+  return (
+    <motion.div initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} transition={{ type: 'spring', damping: 25, stiffness: 200 }} className="fixed top-16 bottom-0 right-0 w-full max-w-lg bg-gray-50 shadow-2xl z-[60] flex flex-col border-l border-gray-200">
+      <div className="p-8 pb-4 bg-white border-b border-gray-100 flex items-center justify-between">
+        <div className="flex items-center gap-4">
+           <div className="w-12 h-12 rounded-2xl bg-teal-50 flex items-center justify-center text-teal-600">
+              <Receipt size={24} />
+           </div>
+           <div>
+              <h3 className="text-lg font-black text-[#042f2e]">Finance Claims</h3>
+              <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Reimbursements & Loans</p>
+           </div>
+        </div>
+        <button onClick={onClose} className="p-2 text-gray-400 hover:bg-gray-50 rounded-xl transition-colors"><X size={24}/></button>
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-6 space-y-4">
+        {loading ? (
+          <div className="text-center text-gray-400 py-10 font-bold animate-pulse text-[12px]">Loading Claims...</div>
+        ) : claims.length === 0 ? (
+          <div className="p-10 text-center bg-white rounded-3xl border border-gray-100 shadow-sm mt-10">
+            <CheckCircle2 size={32} className="mx-auto text-emerald-500 mb-3" />
+            <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">All caught up!</p>
+            <p className="text-[10px] text-gray-400 mt-2">No pending finance claims at the moment.</p>
+          </div>
+        ) : claims.map(c => (
+          <div key={c._id} className="bg-white p-5 rounded-[24px] border border-gray-100 shadow-sm hover:border-teal-500/30 transition-all">
+             <div className="flex items-start justify-between mb-3">
+                <div className="flex items-center gap-3">
+                   <img src={c.empId.avatar} alt="Avatar" className="w-9 h-9 rounded-xl shadow-sm border border-gray-100" />
+                   <div>
+                      <p className="text-xs font-bold text-[#042f2e]">{c.empId.firstName} {c.empId.lastName}</p>
+                      <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest leading-none">{c.empId.dept}</p>
+                   </div>
+                </div>
+                <span className={`text-[9px] font-black px-2 py-1 flex items-center justify-center uppercase tracking-widest rounded-lg border ${
+                   c.status === 'Approved' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
+                   c.status === 'Pending' ? 'bg-amber-50 text-amber-600 border-amber-100' :
+                   'bg-rose-50 text-rose-600 border-rose-100'
+                }`}>
+                   {c.status}
+                </span>
+             </div>
+             
+             <div className="flex items-center justify-between mt-4 pb-4 border-b border-gray-50">
+                <div>
+                   <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{c.type}</p>
+                   <p className="text-[13px] font-bold text-[#042f2e]">{c.description || 'System Request'}</p>
+                </div>
+                <div className="text-right">
+                   {c.status === 'Pending' ? (
+                      <div className="flex items-center gap-1.5 justify-end">
+                         <span className="text-sm font-black text-teal-600">₹</span>
+                         <input 
+                           type="number" 
+                           value={customAmounts[c._id] !== undefined ? customAmounts[c._id] : c.amount}
+                           onChange={(e) => setCustomAmounts({...customAmounts, [c._id]: e.target.value})}
+                           className="w-24 bg-teal-50 text-teal-600 text-right font-black text-sm outline-none rounded-lg py-1 px-2 border border-teal-100 focus:ring-2 focus:ring-teal-500/20"
+                         />
+                      </div>
+                   ) : (
+                      <p className="text-base font-black text-teal-600 tracking-tight">₹{c.amount.toLocaleString('en-IN')}</p>
+                   )}
+                   <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest mt-1">{new Date(c.createdAt).toLocaleDateString()}</p>
+                </div>
+             </div>
+
+             <div className="flex items-center justify-between mt-4">
+                {c.receipt ? (
+                   <a href={`${API_URL.replace('/api', '')}/uploads/${c.receipt}`} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-[10px] uppercase font-black tracking-widest text-[#042f2e] hover:text-teal-600 group hover:underline">
+                      <FileText size={14} className="group-hover:text-teal-500" /> View Receipt
+                   </a>
+                ) : (
+                   <span className="text-[10px] text-gray-300 font-bold uppercase tracking-widest">No Receipt</span>
+                )}
+
+                {c.status === 'Pending' ? (
+                   <div className="flex gap-2">
+                     <button onClick={() => handleUpdate(c._id, 'Rejected', c.amount)} className="px-4 py-2 bg-rose-50 text-rose-600 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-rose-500 hover:text-white transition-all">Reject</button>
+                     <button onClick={() => handleUpdate(c._id, 'Approved', c.amount)} className="px-4 py-2 bg-emerald-50 text-emerald-600 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-emerald-500 hover:text-white transition-all">Approve</button>
+                   </div>
+                ) : (
+                   <span className="text-[9px] font-bold text-gray-300 uppercase tracking-widest">Processed</span>
+                )}
+             </div>
+          </div>
+        ))}
       </div>
     </motion.div>
   );
 };
+
 
 // ─── MAIN PAGE ─────────────────────────────────────────────────────────────
 
@@ -218,6 +368,7 @@ const Payroll = () => {
   const [search, setSearch] = useState('');
   const [selectedEmp, setSelectedEmp] = useState(null);
   const [isRunning, setIsRunning] = useState(false);
+  const [isClaimsDrawerOpen, setClaimsDrawerOpen] = useState(false);
 
   // Generate rows
   const rows = useMemo(() => {
@@ -295,8 +446,8 @@ const Payroll = () => {
                   onChange={(e) => setActiveCycle(e.target.value)}
                   className="pl-12 pr-10 py-3 bg-white border border-gray-100 rounded-[20px] text-sm font-black text-[#042f2e] focus:outline-none focus:ring-4 focus:ring-teal-500/5 shadow-sm appearance-none cursor-pointer"
                 >
-                  {['January', 'February', 'March', 'April'].map(m => (
-                    <option key={m} value={`${m} 2026`}>{m} 2026</option>
+                  {['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map(m => (
+                    <option key={m} value={`${m} ${new Date().getFullYear()}`}>{m} {new Date().getFullYear()}</option>
                   ))}
                 </select>
              </div>
@@ -313,7 +464,14 @@ const Payroll = () => {
              </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
+            <button 
+               onClick={() => setClaimsDrawerOpen(true)}
+               className="flex items-center gap-2 px-6 py-3 bg-white text-gray-700 border border-gray-100 rounded-[20px] text-[10px] font-black uppercase tracking-widest hover:border-teal-200 transition-all shadow-sm"
+            >
+               <Receipt size={16} className="text-teal-500" />
+               Review Claims
+            </button>
             <button 
                onClick={handleRunPayroll}
                disabled={payrollStatus.isLocked || isRunning}
@@ -355,7 +513,7 @@ const Payroll = () => {
             <button 
                onClick={handleExportCSV}
                title="Download CSV Export"
-               className="flex items-center justify-center w-12 h-12 bg-[#042f2e] text-white rounded-[20px] hover:bg-teal-900 transition-all shadow-lg shadow-teal-900/10"
+               className="flex items-center justify-center w-12 h-12 bg-[#042f2e] text-white rounded-[20px] hover:bg-teal-900 transition-all shadow-lg shadow-teal-900/10 shrink-0"
             >
                <Download size={20} />
             </button>
@@ -415,8 +573,8 @@ const Payroll = () => {
                                 <span className={`text-[10px] font-black px-2 py-0.5 rounded ${row.loan > 0 ? 'bg-amber-50 text-amber-600' : 'bg-gray-50 text-gray-300'}`}>
                                    EMI: {formatCurr(row.loan)}
                                 </span>
-                                <span className={`text-[10px] font-black px-2 py-0.5 rounded ${row.perqs > 0 ? 'bg-teal-50 text-teal-600' : 'bg-gray-50 text-gray-300'}`}>
-                                   PRQ: {formatCurr(row.perqs)}
+                                <span className={`text-[10px] font-black px-2 py-0.5 rounded ${row.reimbursements > 0 ? 'bg-teal-50 text-teal-600' : 'bg-gray-50 text-gray-300'}`}>
+                                   REI: {formatCurr(row.reimbursements)}
                                 </span>
                              </div>
                          </td>
@@ -518,7 +676,7 @@ const Payroll = () => {
 
       </div>
 
-      {/* Detail Drawer */}
+      {/* Detail Drawers */}
       <AnimatePresence>
         {selectedEmp && (
           <>
@@ -532,12 +690,22 @@ const Payroll = () => {
             <PayrollDrawer data={selectedEmp} onClose={() => setSelectedEmp(null)} />
           </>
         )}
+
+        {isClaimsDrawerOpen && (
+          <>
+             <motion.div 
+               initial={{ opacity: 0 }} 
+               animate={{ opacity: 1 }} 
+               exit={{ opacity: 0 }} 
+               onClick={() => setClaimsDrawerOpen(false)}
+               className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50" 
+            />
+            <ClaimsDrawer onClose={() => setClaimsDrawerOpen(false)} />
+          </>
+        )}
       </AnimatePresence>
     </AdminLayout>
   );
 };
-
-// Simple Icon helper since I used PlayCircleIcon name accidentally
-const PlayCircleIcon = ({ size }) => <motion.div whileTap={{ scale: 0.9 }}><PlusCircle size={size} /></motion.div>;
 
 export default Payroll;

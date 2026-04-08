@@ -11,9 +11,13 @@ export const GlobalProvider = ({ children }) => {
   const [attendance, setAttendance] = useState([]);
   const [teams, setTeams] = useState([]);
   const [leaveRequests, setLeaveRequests] = useState([]);
-  const [payrollStatus, setPayrollStatus] = useState({
-    isLocked: false,
-    cycle: "March 2026",
+  const [payrollStatus, setPayrollStatus] = useState(() => {
+    const prevMonthDate = new Date();
+    prevMonthDate.setMonth(prevMonthDate.getMonth() - 1);
+    return {
+      isLocked: false,
+      cycle: prevMonthDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
+    };
   });
   const [sidebarCollapsed, setSidebarCollapsed] = useState(window.innerWidth < 1024);
 
@@ -40,14 +44,14 @@ export const GlobalProvider = ({ children }) => {
            avatar: `https://ui-avatars.com/api/?name=${e.firstName}+${e.lastName}&background=random`,
            email: e.email, status: 'Active', type: e.type,
            joiningDate: e.joiningDate || e.createdAt,
-           baseSalary: Number(e.salary || e.basicSalary || e.basic || e.rate || 25000),
-           hraAmount: Number(e.hra || 10000),
-           totalAllowances: Number(e.travel || 0) + Number(e.daily || 0) + (Array.isArray(e.otherAllowances) ? e.otherAllowances.reduce((sum, i) => sum + Number(i.amount || 0), 0) : 0),
-           pfEnabled: Boolean(e.pfEnabled),
-           pfEmployee: Number(e.pfEmployee || 0),
-           profTax: Boolean(e.profTax),
-           tds: Boolean(e.tds),
-           totalOtherDeduct: Array.isArray(e.otherDeductions) ? e.otherDeductions.reduce((sum, i) => sum + Number(i.amount || 0), 0) : 0
+            baseSalary: Number(e.salary || e.basicSalary || e.basic || e.rate || 0),
+            hraAmount: Number(e.hra || 0),
+            totalAllowances: Number(e.travel || 0) + Number(e.daily || 0) + (Array.isArray(e.otherAllowances) ? e.otherAllowances.reduce((sum, i) => sum + Number(i.amount || 0), 0) : 0),
+            pfEnabled: Boolean(e.pfEnabled),
+            pfEmployee: Number(e.pfEmployee || 0),
+            profTax: Boolean(e.profTax),
+            tds: Boolean(e.tds),
+            totalOtherDeduct: Array.isArray(e.otherDeductions) ? e.otherDeductions.reduce((sum, i) => sum + Number(i.amount || 0), 0) : 0
         })));
       }
       if (teamRes.ok) {

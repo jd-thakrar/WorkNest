@@ -4,6 +4,7 @@ import Team from '../models/Team.js';
 import Payroll from '../models/Payroll.js';
 import Attendance from '../models/Attendance.js';
 import LeaveRequest from '../models/LeaveRequest.js';
+import FinanceRequest from '../models/FinanceRequest.js';
 
 // @desc    Get complete dashboard data for the logged-in employee
 // @route   GET /api/employee-self/dashboard
@@ -495,6 +496,123 @@ export const updateNotes = async (req, res) => {
     await record.save();
 
     res.json({ message: 'Log Updated', notes: record.notes });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Submit reimbursement claim with receipt
+// @route   POST /api/employee-self/finance/reimbursement
+// @access  Private/Employee
+export const applyReimbursement = async (req, res) => {
+  try {
+    const { amount, description, type } = req.body;
+    const employee = await Employee.findOne({ user: req.user._id });
+    if (!employee) return res.status(404).json({ message: 'Personnel record not found' });
+
+    if (!req.file) {
+      return res.status(400).json({ message: 'Receipt document is required' });
+    }
+
+    const claim = await FinanceRequest.create({
+      empId: employee._id,
+      type: type || 'Reimbursement',
+      amount: Number(amount),
+      description: description || 'Expense Claim',
+      receipt: req.file.filename, // Store the filename
+      company: employee.company,
+      status: 'Pending'
+    });
+
+    res.status(201).json({ 
+      message: 'Claim transmitted successfully', 
+      claim 
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+// @desc    Get complete finance data (claims, loans, payslips)
+// @route   GET /api/employee-self/finance
+// @access  Private/Employee
+export const getFinanceData = async (req, res) => {
+  try {
+    const employee = await Employee.findOne({ user: req.user._id });
+    if (!employee) return res.status(404).json({ message: 'Personnel record not found' });
+
+    const requests = await FinanceRequest.find({ empId: employee._id }).sort({ createdAt: -1 });
+    const payrollList = await Payroll.find({ empId: employee._id }).sort({ createdAt: -1 });
+
+    const recentPayroll = payrollList[0];
+    const latestPayslip = recentPayroll ? { 
+       month: recentPayroll.month, 
+       net: recentPayroll.net,
+       gross: recentPayroll.gross
+    } : null;
+
+    // Separate claims and loans
+    const claims = requests.filter(r => r.type === 'Reimbursement');
+    const loans = requests.filter(r => r.type === 'Loan');
+
+    // Aggregate values
+    const pendingClaimsCount = claims.filter(c => c.status === 'Pending').length;
+    const pendingClaimsValue = claims.filter(c => c.status === 'Pending').reduce((sum, c) => sum + c.amount, 0);
+    const ytdApproved = claims.filter(c => c.status === 'Approved').reduce((sum, c) => sum + c.amount, 0);
+
+    const activeLoan = loans.find(l => l.remainingMonths > 0) || null;
+
+    res.json({
+      claims,
+      loans,
+      latestPayslip,
+      stats: {
+        pendingClaimsCount,
+        pendingClaimsValue,
+        ytdApproved,
+        activeLoan
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Apply for a personal loan
+// @route   POST /api/employee-self/finance/loan
+// @access  Private/Employee
+export const applyLoan = async (req, res) => {
+  try {
+    const { amount, description, tenureMonths } = req.body;
+    const employee = await Employee.findOne({ user: req.user._id });
+    if (!employee) return res.status(404).json({ message: 'Personnel record not found' });
+
+    if (!amount || amount <= 0) {
+      return res.status(400).json({ message: 'Invalid loan amount' });
+    }
+
+    if (!tenureMonths || tenureMonths <= 0) {
+      return res.status(400).json({ message: 'Invalid tenure' });
+    }
+
+    const monthlyEMI = Math.round(Number(amount) / Number(tenureMonths));
+
+    const loanRequest = await FinanceRequest.create({
+      empId: employee._id,
+      type: 'Loan',
+      amount: Number(amount),
+      description: description || 'Personal Loan Request',
+      totalAmount: Number(amount),
+      monthlyEMI,
+      tenureMonths: Number(tenureMonths),
+      remainingMonths: Number(tenureMonths),
+      company: employee.company,
+      status: 'Pending'
+    });
+
+    res.status(201).json({ 
+      message: 'Loan application transmitted successfully', 
+      loan: loanRequest 
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

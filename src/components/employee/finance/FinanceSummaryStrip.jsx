@@ -1,32 +1,34 @@
 import React from "react";
 import { Wallet, Landmark, Receipt, CreditCard } from "lucide-react";
 
-const FinanceSummaryStrip = () => {
+const FinanceSummaryStrip = ({ data }) => {
+  if (!data) return null;
+
   const stats = [
     {
       label: "Next Payout",
-      value: "₹84,000",
+      value: `₹${data.latestPayslip?.net?.toLocaleString('en-IN') || "0"}`,
       icon: Wallet,
       color: "text-teal-600",
-      detail: "30 Mar 2026",
+      detail: data.latestPayslip?.month || "No Data",
     },
     {
       label: "Loan Balance",
-      value: "₹1,24,500",
+      value: `₹${(data.stats.activeLoan?.remainingMonths * data.stats.activeLoan?.monthlyEMI || 0).toLocaleString('en-IN')}`,
       icon: Landmark,
       color: "text-blue-600",
-      detail: "EMI: ₹12,000",
+      detail: `EMI: ₹${data.stats.activeLoan?.monthlyEMI?.toLocaleString('en-IN') || 0}`,
     },
     {
       label: "Pending Claims",
-      value: "03",
+      value: String(data.stats.pendingClaimsCount).padStart(2, '0'),
       icon: Receipt,
       color: "text-amber-600",
-      detail: "₹12,400",
+      detail: `₹${data.stats.pendingClaimsValue.toLocaleString('en-IN')}`,
     },
     {
       label: "Approved (YTD)",
-      value: "₹2,45,000",
+      value: `₹${data.stats.ytdApproved.toLocaleString('en-IN')}`,
       icon: CreditCard,
       color: "text-emerald-600",
       detail: "Taxable Income",

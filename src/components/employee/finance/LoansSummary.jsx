@@ -1,8 +1,8 @@
 import React from "react";
 import { ShieldCheck, Calendar, ArrowRight, TrendingUp } from "lucide-react";
 
-const LoansSummary = ({ hasLoan = false }) => {
-  if (!hasLoan) {
+const LoansSummary = ({ loan }) => {
+  if (!loan) {
     return (
       <div className="bg-white p-6 rounded-xl border border-slate-200/60 shadow-sm relative overflow-hidden h-full flex flex-col justify-center items-center text-center py-10">
         <div className="w-12 h-12 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-300 mb-4">
@@ -19,6 +19,8 @@ const LoansSummary = ({ hasLoan = false }) => {
     );
   }
 
+  const progress = Math.round(((loan.tenureMonths - loan.remainingMonths) / loan.tenureMonths) * 100);
+
   return (
     <div className="bg-[#042f2e] p-6 rounded-xl shadow-xl shadow-teal-900/10 text-white relative overflow-hidden group h-full flex flex-col">
       <div className="relative z-10 flex flex-col h-full">
@@ -34,11 +36,11 @@ const LoansSummary = ({ hasLoan = false }) => {
         
         <div className="mb-0">
           <p className="text-[10px] font-bold text-teal-400/60 uppercase tracking-widest mb-2 leading-none">Outstanding Balance</p>
-          <h2 className="text-3xl font-black tracking-tight mb-2">₹1,24,500.00</h2>
+          <h2 className="text-3xl font-black tracking-tight mb-2">₹{(loan.remainingMonths * loan.monthlyEMI).toLocaleString('en-IN')}</h2>
           
           <div className="flex items-center gap-1.5 mt-4 group/emi cursor-default">
              <div className="flex items-center gap-1 text-[11px] font-bold text-teal-400/90 tracking-tight">
-                <Calendar size={12} strokeWidth={3} /> Next EMI: ₹12,000
+                <Calendar size={12} strokeWidth={3} /> Next EMI: ₹{loan.monthlyEMI.toLocaleString('en-IN')}
              </div>
              <div className="w-1.5 h-1.5 rounded-full bg-teal-500 animate-pulse" />
           </div>
@@ -47,10 +49,10 @@ const LoansSummary = ({ hasLoan = false }) => {
         <div className="mt-8 pt-8 border-t border-white/5 space-y-4">
            <div className="flex items-center justify-between">
               <p className="text-[10px] font-bold text-teal-400/60 uppercase tracking-widest">Repayment Progress</p>
-              <p className="text-[10px] font-black text-white">65%</p>
+              <p className="text-[10px] font-black text-white">{progress}%</p>
            </div>
            <div className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
-              <div className="h-full bg-teal-500 shadow-[0_0_12px_rgba(20,184,166,0.4)]" style={{ width: "65%" }} />
+              <div className="h-full bg-teal-500 shadow-[0_0_12px_rgba(20,184,166,0.4)]" style={{ width: `${progress}%` }} />
            </div>
         </div>
 

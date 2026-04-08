@@ -1,7 +1,9 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { History, FileText, Receipt, Download, ShieldAlert } from "lucide-react";
 import EmployeeLayout from "../../layouts/EmployeeLayout";
+import { useAuth } from "../../context/AuthContext";
+import { API_URL } from "../../config";
 
 // Components
 import LoansSummary from "../../components/employee/finance/LoansSummary";
@@ -10,24 +12,50 @@ import NewClaimForm from "../../components/employee/finance/NewClaimForm";
 import FinanceSummaryStrip from "../../components/employee/finance/FinanceSummaryStrip";
 
 const Finance = () => {
+  const { user } = useAuth();
+  const [data, setData] = useState({
+     claims: [],
+     loans: [],
+     latestPayslip: null,
+     stats: { pendingClaimsCount: 0, pendingClaimsValue: 0, ytdApproved: 0, activeLoan: null }
+  });
+  const [loading, setLoading] = useState(true);
+
+  const fetchFinanceData = async () => {
+     try {
+        const res = await fetch(`${API_URL}/employee-self/finance`, {
+           headers: { "Authorization": `Bearer ${user.token}` }
+        });
+        if (res.ok) {
+           const json = await res.json();
+           setData(json);
+        }
+     } catch (err) {
+        console.error("Finance fetch error:", err);
+     } finally {
+        setLoading(false);
+     }
+  };
+
+  useEffect(() => { fetchFinanceData(); }, [user]);
+
   const containerVariants = {
     hidden: { opacity: 0 },
     show: {
       opacity: 1,
-      transition: {
-        staggerChildren: 0.05,
-      },
+      transition: { staggerChildren: 0.05 },
     },
   };
 
   const itemVariants = {
     hidden: { opacity: 0, y: 10 },
     show: {
-      opacity: 1,
-      y: 0,
+      opacity: 1, y: 0,
       transition: { duration: 0.4, ease: "easeOut" },
     },
   };
+
+  if (loading) return <EmployeeLayout title="Payroll & Financial Services"><div className="p-10 text-center animate-pulse text-teal-600 font-bold">Synchronizing Financial Data...</div></EmployeeLayout>;
 
   return (
     <EmployeeLayout title="Payroll & Financial Services">
@@ -39,7 +67,7 @@ const Finance = () => {
       >
         {/* Row 1 — Financial Pulse (4 Data Items) */}
         <motion.div variants={itemVariants}>
-          <FinanceSummaryStrip />
+          <FinanceSummaryStrip data={data} />
         </motion.div>
 
         {/* Row 2 — Main Operational Body */}
@@ -47,14 +75,14 @@ const Finance = () => {
           
           {/* LEFT SIDE: Application Form (2/3 width) */}
           <motion.div variants={itemVariants} className="lg:col-span-2">
-            <NewClaimForm />
+            <NewClaimForm onClaimSubmitted={fetchFinanceData} />
           </motion.div>
 
           {/* RIGHT SIDE: Loan & Status Stack (1/3 width) */}
           <div className="lg:col-span-1 space-y-4">
              {/* Loan Status */}
              <motion.div variants={itemVariants}>
-                <LoansSummary hasLoan={false} />
+                <LoansSummary loan={data.stats.activeLoan} />
              </motion.div>
 
              {/* Tax Declaration Card */}
@@ -79,7 +107,7 @@ const Finance = () => {
                    </div>
                    <div>
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-1.5">Latest Payslip</p>
-                      <p className="text-[14px] font-bold text-[#042f2e] tracking-tight">Feb 2026: <span className="text-teal-600">₹84,000.00</span></p>
+                      <p className="text-[14px] font-bold text-[#042f2e] tracking-tight">{data.latestPayslip?.month || "No Entry"}: <span className="text-teal-600">₹{data.latestPayslip?.net?.toLocaleString('en-IN') || "0"}</span></p>
                    </div>
                 </div>
                 <button className="w-9 h-9 flex items-center justify-center rounded-lg bg-slate-50 text-slate-400 hover:bg-teal-600 hover:text-white transition-all shadow-sm">
@@ -101,12 +129,9 @@ const Finance = () => {
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mt-1">Audit trail for all your financial claims</p>
                  </div>
               </div>
-              <button className="text-[11px] font-bold text-teal-600 hover:text-teal-700 uppercase tracking-widest px-3 py-1.5 bg-teal-50/50 rounded-md transition-colors">
-                 View Historical Log
-              </button>
            </div>
            <div>
-              <ClaimsHistory />
+              <ClaimsHistory claims={data.claims} />
            </div>
         </motion.div>
 
