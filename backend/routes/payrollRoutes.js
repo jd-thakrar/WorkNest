@@ -1,8 +1,18 @@
 import express from 'express';
-import { getPayroll, processPayroll, markPaid, getAllClaims, updateClaimStatus, overridePayrollRow } from '../controllers/payrollController.js';
+import { 
+  getPayroll, 
+  processPayroll, 
+  markPaid, 
+  getAllClaims, 
+  updateClaimStatus, 
+  overridePayrollRow,
+  getEmployeePayroll
+} from '../controllers/payrollController.js';
 import { protect } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
+
+router.get('/employee/:id', protect, getEmployeePayroll);
 
 router.route('/claims')
   .get(protect, getAllClaims);

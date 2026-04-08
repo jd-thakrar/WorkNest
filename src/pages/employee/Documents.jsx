@@ -1,7 +1,12 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { FileDown, ShieldAlert, History, Search, Filter, ShieldCheck, Inbox } from "lucide-react";
+import { FileDown, ShieldAlert, History, Search, Filter, ShieldCheck, Inbox, Receipt, Download, FileText, ChevronRight } from "lucide-react";
 import EmployeeLayout from "../../layouts/EmployeeLayout";
+import { useAuth } from "../../context/AuthContext";
+import { useGlobal } from "../../context/GlobalContext";
+import { API_URL } from "../../config";
+import { calcPayrollRow } from "../../utils/payrollUtils";
+import { generatePayslipPDF, generateDocumentPDF } from "../../utils/pdfGenerator";
 
 // Components
 import PayslipList from "../../components/employee/documents/PayslipList";
@@ -9,7 +14,112 @@ import OfficialDocs from "../../components/employee/documents/OfficialDocs";
 import TaxSummary from "../../components/employee/documents/TaxSummary";
 
 const Documents = () => {
+  const { user } = useAuth();
+  const { employees, financials } = useGlobal();
+  const [data, setData] = useState({
+    financials: [],
+    employee: null,
+    settings: null
+  });
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+
+  const fetchFinanceData = async () => {
+    if (!user?.token) {
+      setLoading(false);
+      return;
+    }
+    try {
+      const res = await fetch(`${API_URL}/employee-self/finance`, {
+        headers: { Authorization: `Bearer ${user.token}` },
+      });
+      if (res.ok) {
+        const json = await res.json();
+        setData(json);
+      }
+    } catch (err) {
+      console.error("Finance fetch error:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (user) fetchFinanceData();
+    else if (!user) setLoading(false);
+  }, [user]);
+
+  if (loading) return (
+    <EmployeeLayout title="Records & Compliance">
+      <div className="flex flex-col items-center justify-center min-h-[60vh]">
+        <div className="w-16 h-16 border-4 border-teal-500/20 border-t-teal-500 rounded-full animate-spin mb-6" />
+        <p className="text-teal-600 font-bold uppercase tracking-widest text-[10px] animate-pulse">
+           Indexation of Secure Records in Progress...
+        </p>
+      </div>
+    </EmployeeLayout>
+  );
+
+  const userId = user?.id || user?._id;
+  const activeEmp = (data.employee) 
+  ? {
+      ...data.employee,
+      id: userId,
+      name: `${data.employee.firstName} ${data.employee.lastName}`,
+      role: data.employee.designation,
+      dept: data.employee.department
+    }
+  : (employees.find(e => e.id === userId || e._id === userId) || { name: user?.name, role: "Associate" });
+
+  const financialRecords = (data.financials && data.financials.length > 0) 
+     ? data.financials.map(f => ({ ...f, id: userId })) 
+     : financials;
+
+  const getMonthRecord = (month) => {
+    if (!activeEmp) return null;
+    const row = calcPayrollRow(userId, [activeEmp], financialRecords, month);
+    if (!row) return null;
+
+    const calculatedSum = (row.pf || 0) + (row.pt || 0) + (row.tds || 0) + (row.otherExtras || 0);
+    const discrepancy = (row.status === 'Paid') ? (row.statutory - calculatedSum) : 0;
+
+    return {
+      employeeName: activeEmp.name,
+      designation: activeEmp.role,
+      panNo: activeEmp.pan || data.employee?.pan,
+      accountNo: activeEmp.accountNumber || data.employee?.accountNumber,
+      company: {
+        name: data.settings?.companyName || "WORKNEST TECHNOLOGIES",
+        address: [data.settings?.address, data.settings?.city, data.settings?.pinCode].filter(Boolean).join(", ") || "123 Business Hub, Cyber City",
+        phone: data.settings?.phone || "+91 80 1234 5678",
+        email: data.settings?.email || "hr@worknest.com"
+      },
+      month: row.month,
+      amount: Math.round(row.net).toLocaleString("en-IN"),
+      status: row.status,
+      date: row.status === "Paid" ? "Disbursed" : "Finalizing",
+      details: {
+        basic: Math.round(row.basic).toLocaleString("en-IN"),
+        hra: Math.round(row.hra).toLocaleString("en-IN"),
+        special: Math.round(row.allowances).toLocaleString("en-IN"),
+        reimbursement: Math.round(row.reimbursements).toLocaleString("en-IN"),
+        gross: Math.round(row.gross).toLocaleString("en-IN"),
+        pf: Math.round(row.pf).toLocaleString("en-IN"),
+        pt: Math.round(row.pt).toLocaleString("en-IN"),
+        tds: Math.round(row.tds).toLocaleString("en-IN"),
+        totalDeductions: Math.round(row.totalDeductions).toLocaleString("en-IN"),
+        lwp: Math.round(row.lwpDeduct).toLocaleString("en-IN"),
+        otherExtras: Math.round((row.otherExtras || 0) + discrepancy).toLocaleString("en-IN"),
+      },
+    };
+  };
+
+  const currentYear = new Date().getFullYear();
+  const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
+    .map(m => `${m} ${currentYear}`)
+    .map(m => getMonthRecord(m))
+    .filter(Boolean)
+    .filter(r => r.status === 'Paid'); // Only show issued payslips
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -36,94 +146,31 @@ const Documents = () => {
         variants={containerVariants}
         initial="hidden"
         animate="show"
-        className="space-y-6 pb-20"
+        className="max-w-5xl mx-auto pb-20"
       >
-        {/* ROW 1 — EXECUTIVE SUMMARY CARDS */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
-           <motion.div variants={itemVariants} className="lg:col-span-1 h-full">
-              <TaxSummary />
-           </motion.div>
-           <motion.div variants={itemVariants} className="lg:col-span-1 h-full">
-              <OfficialDocs />
-           </motion.div>
-           <motion.div variants={itemVariants} className="lg:col-span-1 h-full">
-              <div className="bg-white p-6 rounded-xl border border-slate-200/60 shadow-sm h-full flex flex-col justify-between group overflow-hidden relative">
-                 <div className="relative z-10">
-                    <div className="flex items-center gap-3 mb-6">
-                       <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600 border border-blue-100">
-                          <ShieldCheck size={20} />
-                       </div>
-                       <div>
-                          <h4 className="text-[14px] font-bold text-[#042f2e] tracking-tight">Security & Identity</h4>
-                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mt-1">Digital compliance status</p>
-                       </div>
-                    </div>
-                    <div className="space-y-4">
-                       <div className="p-3 bg-slate-50/50 rounded-lg border border-slate-100">
-                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Verification</p>
-                          <p className="text-[12px] font-bold text-slate-600 tracking-tight">E-KYC Completed on Jan 02, 2026</p>
-                       </div>
-                       <div className="p-3 bg-slate-50/50 rounded-lg border border-slate-100">
-                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Digital Signatures</p>
-                          <p className="text-[12px] font-bold text-teal-600 tracking-tight flex items-center gap-1.5">
-                             <ShieldCheck size={14} /> Active & Bound to EMP-120
-                          </p>
-                       </div>
-                    </div>
-                 </div>
-                 <div className="mt-6 pt-4 border-t border-slate-50 relative z-10">
-                    <button className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-[#042f2e] hover:text-teal-600 transition-colors">
-                       View Credentials Portal →
-                    </button>
-                 </div>
-                 <Inbox className="absolute right-[-20px] bottom-[-20px] text-slate-50 group-hover:text-teal-50/50 transition-colors pointer-events-none" size={140} strokeWidth={1} />
-              </div>
-           </motion.div>
-        </div>
-
-        {/* ROW 2 — SEARCH & ACTION BAR */}
-        <motion.div variants={itemVariants} className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
-           <div className="flex flex-col sm:flex-row items-center gap-3 w-full xl:w-auto">
-              <div className="relative group w-full xl:w-[400px]">
-                 <Search size={16} className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-teal-600 transition-colors" />
-                 <input 
-                   type="text" 
-                   placeholder="Search through payslips, tax forms..."
-                   className="w-full pl-12 pr-6 py-3.5 bg-white border border-slate-200 rounded-xl text-[13px] font-medium text-slate-900 focus:outline-none focus:ring-4 focus:ring-teal-500/5 focus:border-teal-500/30 transition-all shadow-sm"
-                   value={searchQuery}
-                   onChange={(e) => setSearchQuery(e.target.value)}
-                 />
-              </div>
-              <button className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-3.5 bg-white border border-slate-200 rounded-xl text-[11px] font-bold text-slate-400 uppercase tracking-widest hover:border-teal-500/30 hover:text-teal-600 transition-all">
-                 <Filter size={16} /> Filters
-              </button>
-           </div>
-           
-           <button className="flex items-center justify-center gap-2.5 px-8 py-3.5 bg-[#042f2e] hover:bg-slate-900 text-white rounded-xl shadow-xl shadow-teal-900/10 transition-all font-bold text-[12px] uppercase tracking-widest active:scale-95 group">
-              <FileDown size={16} className="group-hover:translate-y-0.5 transition-transform" />
-              Download All Records
-           </button>
+        {/* EXCLUSIVE REPOSITORY FOCUS */}
+        <motion.div variants={itemVariants} className="w-full">
+           <OfficialDocs 
+              employeeName={activeEmp?.name} 
+              company={data.settings} 
+              joiningDate={activeEmp?.joiningDate}
+           />
         </motion.div>
 
-        {/* ROW 3 — PAYSLIP HISTORY */}
-        <motion.div variants={itemVariants} className="bg-white rounded-xl border border-slate-200/60 shadow-sm flex flex-col overflow-hidden">
-           <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/30">
-              <div className="flex items-center gap-3">
-                 <div className="w-9 h-9 rounded-lg bg-teal-50 flex items-center justify-center text-teal-600 border border-teal-100">
-                    <History size={18} />
-                 </div>
-                 <div>
-                    <h4 className="text-[14px] font-bold text-[#042f2e] tracking-tight">Payslip History</h4>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mt-1">Full breakdown of your monthly earnings</p>
-                 </div>
-              </div>
-              <span className="px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-[10px] font-black text-slate-400 uppercase tracking-tighter">
-                 Audit Period: FY 2025-26
-              </span>
+        {/* SECURITY & TRUST FOOTER */}
+        <motion.div 
+           variants={itemVariants}
+           className="mt-12 p-8 bg-slate-50 rounded-[32px] border border-slate-200/60 flex flex-col md:flex-row items-center justify-between gap-6"
+        >
+           <div className="flex items-center gap-4 text-slate-400">
+              <ShieldCheck size={20} />
+              <p className="text-[11px] font-bold uppercase tracking-widest">End-to-End Encrypted Secure Storage</p>
            </div>
-           <PayslipList />
+           <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-teal-500" />
+              <span className="text-[10px] font-black text-[#042f2e] uppercase tracking-tighter">Compliance Engine Active</span>
+           </div>
         </motion.div>
-
       </motion.div>
     </EmployeeLayout>
   );

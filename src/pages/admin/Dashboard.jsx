@@ -149,7 +149,7 @@ const Dashboard = () => {
       accent: "teal",
     },
     {
-      label: "Net Payroll (Current)",
+      label: `Next Payout (${new Date().toLocaleString('en-US', { month: 'long' })})`,
       value: DASHBOARD_DATA.payroll.total,
       trend: `Paid: ${DASHBOARD_DATA.payroll.disbursed} | Rem: ${DASHBOARD_DATA.payroll.pending}`,
       trendUp: true,

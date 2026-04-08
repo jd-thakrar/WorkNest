@@ -1,37 +1,39 @@
 import React from "react";
-import { Wallet, Landmark, Receipt, CreditCard } from "lucide-react";
+import { Wallet, Landmark, Receipt, CalendarClock } from "lucide-react";
 
 const FinanceSummaryStrip = ({ data }) => {
   if (!data) return null;
 
+  const currentMonthName = new Date().toLocaleString('en-US', { month: 'long' });
+
   const stats = [
     {
-      label: "Next Payout",
+      label: "Last Payout",
       value: `₹${data.latestPayslip?.net?.toLocaleString('en-IN') || "0"}`,
       icon: Wallet,
       color: "text-teal-600",
       detail: data.latestPayslip?.month || "No Data",
     },
     {
-      label: "Loan Balance",
-      value: `₹${(data.stats.activeLoan?.remainingMonths * data.stats.activeLoan?.monthlyEMI || 0).toLocaleString('en-IN')}`,
+      label: "YTD Approved",
+      value: `₹${data.stats?.ytdApproved?.toLocaleString('en-IN') || "0"}`,
       icon: Landmark,
       color: "text-blue-600",
-      detail: `EMI: ₹${data.stats.activeLoan?.monthlyEMI?.toLocaleString('en-IN') || 0}`,
+      detail: "Approved Claims",
     },
     {
       label: "Pending Claims",
-      value: String(data.stats.pendingClaimsCount).padStart(2, '0'),
+      value: String(data.stats?.pendingClaimsCount || 0).padStart(2, '0'),
       icon: Receipt,
       color: "text-amber-600",
-      detail: `₹${data.stats.pendingClaimsValue.toLocaleString('en-IN')}`,
+      detail: `₹${(data.stats?.pendingClaimsValue || 0).toLocaleString('en-IN')}`,
     },
     {
-      label: "Approved (YTD)",
-      value: `₹${data.stats.ytdApproved.toLocaleString('en-IN')}`,
-      icon: CreditCard,
+      label: "Next Payout",
+      value: data.nextPayoutDraft !== null ? `₹${data.nextPayoutDraft.toLocaleString('en-IN')}` : "--",
+      icon: CalendarClock,
       color: "text-emerald-600",
-      detail: "Taxable Income",
+      detail: `End of ${currentMonthName}`,
     },
   ];
 

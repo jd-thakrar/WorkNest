@@ -6,33 +6,40 @@ import { User, Camera, ShieldCheck, Mail, Phone, Calendar, MapPin, Briefcase, Ha
  * Displays and allows editing of employee basic information, 
  * strictly reflecting the data points collected during the "Add Employee" process.
  */
-const PersonalInfo = () => {
-  const [formData] = useState({
-    firstName: "Chirag",
-    middleName: "",
-    lastName: "Parekh",
-    employeeId: "EMP-120",
-    joiningDate: "2024-01-15",
-    mobile: "+91 98765 43210",
-    email: "chirag@worknest.io",
-    gender: "Male",
-    location: "Ahmedabad HQ",
-    designation: "Senior Product Architect",
-    department: "Engineering"
-  });
+const PersonalInfo = ({ employee, onChange }) => {
+  const formData = {
+    firstName: employee?.firstName || "",
+    middleName: employee?.middleName || "",
+    lastName: employee?.lastName || "",
+    employeeId: employee?.employeeId || "NEW-EMP",
+    joiningDate: employee?.joiningDate ? new Date(employee.joiningDate).toISOString().split('T')[0] : "",
+    mobile: employee?.mobile || "",
+    email: employee?.email || "",
+    gender: employee?.gender || "Not Specified",
+    location: employee?.location || "Remote",
+    designation: employee?.designation || employee?.role || "Associate",
+    department: employee?.department || "General",
+    type: employee?.type || "Full-time"
+  };
 
   const fields = [
-    { id: "firstName", label: "First Name", icon: User, value: formData.firstName },
-    { id: "middleName", label: "Middle Name", icon: User, value: formData.middleName, placeholder: "Optional" },
-    { id: "lastName", label: "Last Name", icon: User, value: formData.lastName },
-    { id: "employeeId", label: "Employee ID", icon: Hash, value: formData.employeeId, disabled: true },
-    { id: "email", label: "Work Email", icon: Mail, value: formData.email, disabled: true },
-    { id: "mobile", label: "Mobile Number", icon: Phone, value: formData.mobile },
-    { id: "joiningDate", label: "Joining Date", icon: Calendar, value: formData.joiningDate, type: "date" },
-    { id: "location", label: "Work Location", icon: MapPin, value: formData.location },
-    { id: "designation", label: "Designation", icon: Briefcase, value: formData.designation },
-    { id: "department", label: "Department", icon: Briefcase, value: formData.department },
+    { id: "firstName", name: "firstName", label: "First Name", icon: User, value: formData.firstName },
+    { id: "middleName", name: "middleName", label: "Middle Name", icon: User, value: formData.middleName, placeholder: "Optional" },
+    { id: "lastName", name: "lastName", label: "Last Name", icon: User, value: formData.lastName },
+    { id: "employeeId", name: "employeeId", label: "Employee ID", icon: Hash, value: formData.employeeId, disabled: true },
+    { id: "email", name: "email", label: "Work Email", icon: Mail, value: formData.email, disabled: true },
+    { id: "mobile", name: "mobile", label: "Mobile Number", icon: Phone, value: formData.mobile },
+    { id: "gender", name: "gender", label: "Gender", icon: User, value: formData.gender },
+    { id: "type", name: "type", label: "Employment Type", icon: Briefcase, value: formData.type, disabled: true },
+    { id: "joiningDate", name: "joiningDate", label: "Joining Date", icon: Calendar, value: formData.joiningDate, type: "date", disabled: true },
+    { id: "location", name: "location", label: "Work Location", icon: MapPin, value: formData.location, disabled: true },
+    { id: "designation", name: "designation", label: "Designation", icon: Briefcase, value: formData.designation, disabled: true },
+    { id: "department", name: "department", label: "Department", icon: Briefcase, value: formData.department, disabled: true },
   ];
+
+  const displayJoinDate = employee?.joiningDate 
+    ? new Date(employee.joiningDate).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+    : "N/A";
 
   return (
     <div className="bg-white p-6 sm:p-10 rounded-xl border border-slate-200 shadow-sm overflow-hidden relative group">
@@ -56,9 +63,9 @@ const PersonalInfo = () => {
         {/* Left: Avatar Management */}
         <div className="flex flex-col items-center gap-6 shrink-0">
           <div className="relative group/avatar">
-            <div className="w-40 h-40 rounded-xl border-4 border-slate-50 overflow-hidden shadow-2xl shadow-teal-900/10 group-hover/avatar:scale-[1.02] transition-transform duration-500">
+            <div className="w-40 h-40 rounded-xl border-4 border-slate-50 overflow-hidden shadow-2xl shadow-teal-900/10 group-hover/avatar:scale-[1.02] transition-transform duration-500 bg-slate-50">
               <img 
-                src="/founders/chirag.png" 
+                src={employee?.avatar || `https://ui-avatars.com/api/?name=${formData.firstName}+${formData.lastName}&background=042f2e&color=fff&bold=true&size=128`} 
                 alt="Profile" 
                 className="w-full h-full object-cover transition-all duration-700 group-hover/avatar:scale-110" 
               />
@@ -73,11 +80,11 @@ const PersonalInfo = () => {
           
           <div className="text-center space-y-1">
              <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Member Since</p>
-             <p className="text-sm font-black text-[#042f2e]">{formData.joiningDate}</p>
+             <p className="text-sm font-black text-[#042f2e]">{displayJoinDate}</p>
           </div>
         </div>
 
-        {/* Right: Detailed Fields (Reflecting Step 1 of Add Employee) */}
+        {/* Right: Detailed Fields */}
         <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
           {fields.map((field) => (
             <div key={field.id} className="space-y-2 group/field">
@@ -86,8 +93,10 @@ const PersonalInfo = () => {
                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{field.label}</label>
               </div>
               <input 
+                name={field.name}
                 type={field.type || "text"}
-                defaultValue={field.value}
+                value={field.value}
+                onChange={onChange}
                 disabled={field.disabled}
                 placeholder={field.placeholder}
                 className={`w-full px-5 py-3.5 rounded-xl border text-[13px] font-bold transition-all outline-none 

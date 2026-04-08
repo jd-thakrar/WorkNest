@@ -243,3 +243,15 @@ export const overridePayrollRow = async (req, res) => {
     res.status(400).json({ message: error.message });
   }
 };
+
+// @desc    Get all payroll records for a specific employee
+// @route   GET /api/payroll/employee/:id
+// @access  Private
+export const getEmployeePayroll = async (req, res) => {
+  try {
+    const payrolls = await Payroll.find({ empId: req.params.id }).sort({ month: -1 });
+    res.json(payrolls);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};

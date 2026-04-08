@@ -1,3 +1,4 @@
+import User from '../models/User.js';
 import Employee from '../models/Employee.js';
 import Task from '../models/Task.js';
 import Team from '../models/Team.js';
@@ -5,6 +6,7 @@ import Payroll from '../models/Payroll.js';
 import Attendance from '../models/Attendance.js';
 import LeaveRequest from '../models/LeaveRequest.js';
 import FinanceRequest from '../models/FinanceRequest.js';
+import Settings from '../models/Settings.js';
 
 // @desc    Get complete dashboard data for the logged-in employee
 // @route   GET /api/employee-self/dashboard
@@ -120,6 +122,8 @@ export const getEmployeeDashboard = async (req, res) => {
         role: employee.designation,
         employeeId: employee.employeeId,
         avatar: req.user.avatar || '',
+        joiningDate: employee.joiningDate,
+        id: employee._id
       },
       attendance: attendanceSummary,
       tasks: taskStats,
@@ -546,8 +550,16 @@ export const getFinanceData = async (req, res) => {
     const recentPayroll = payrollList[0];
     const latestPayslip = recentPayroll ? { 
        month: recentPayroll.month, 
+       basic: recentPayroll.basic,
+       hra: recentPayroll.hra,
+       allowances: recentPayroll.allowances,
+       gross: recentPayroll.gross,
+       deductions: recentPayroll.deductions,
+       lop: recentPayroll.lop,
+       reimbursements: recentPayroll.reimbursements,
+       loanDeduction: recentPayroll.loanDeduction,
        net: recentPayroll.net,
-       gross: recentPayroll.gross
+       status: recentPayroll.status
     } : null;
 
     // Separate claims and loans
@@ -561,10 +573,18 @@ export const getFinanceData = async (req, res) => {
 
     const activeLoan = loans.find(l => l.remainingMonths > 0) || null;
 
+    const settings = await Settings.findOne();
+
     res.json({
+      employee: {
+        ...employee.toObject(),
+        id: employee._id
+      },
+      financials: payrollList,
       claims,
       loans,
       latestPayslip,
+      settings,
       stats: {
         pendingClaimsCount,
         pendingClaimsValue,
@@ -613,6 +633,41 @@ export const applyLoan = async (req, res) => {
       message: 'Loan application transmitted successfully', 
       loan: loanRequest 
     });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Update employee profile (Self-Service)
+// @route   PUT /api/employee-self/profile
+// @access  Private/Employee
+export const updateEmployeeProfile = async (req, res) => {
+  try {
+    const employee = await Employee.findOne({ user: req.user._id });
+    if (!employee) return res.status(404).json({ message: 'Personnel record not found' });
+
+    const { firstName, lastName, middleName, mobile, dob, fatherName, avatar, address } = req.body;
+
+    // 1. Update Employee Record
+    employee.firstName = firstName || employee.firstName;
+    employee.lastName = lastName || employee.lastName;
+    employee.middleName = middleName || employee.middleName;
+    employee.mobile = mobile || employee.mobile;
+    employee.dob = dob || employee.dob;
+    employee.fatherName = fatherName || employee.fatherName;
+    employee.address = address || employee.address;
+    
+    await employee.save();
+
+    // 2. Update User Auth Identity
+    const user = await User.findById(req.user._id);
+    if (user) {
+      user.name = `${employee.firstName} ${employee.lastName}`;
+      if (avatar) user.avatar = avatar;
+      await user.save();
+    }
+
+    res.json({ message: 'Profile updated successfully', employee });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

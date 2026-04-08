@@ -15,6 +15,30 @@ export const getEmployees = async (req, res) => {
   }
 };
 
+// @desc    Get employee by ID
+// @route   GET /api/employees/:id
+// @access  Private
+export const getEmployeeById = async (req, res) => {
+  try {
+    // If not admin, check if fetching own record
+    if (req.user.role !== 'admin') {
+       const emp = await Employee.findOne({ user: req.user._id });
+       if (!emp || emp._id.toString() !== req.params.id) {
+          return res.status(403).json({ message: 'Forbidden' });
+       }
+       return res.json(emp);
+    }
+
+    const employee = await Employee.findOne({ _id: req.params.id, company: req.user.company });
+    if (!employee) {
+      return res.status(404).json({ message: 'Employee not found' });
+    }
+    res.json(employee);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 // @desc    Add a new employee
 // @route   POST /api/employees
 // @access  Private/Admin

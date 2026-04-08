@@ -6,14 +6,18 @@ import { FileText, MapPin, Hash, ShieldCheck, Mail, Calendar } from "lucide-reac
  * Displays compliance and identity records collected during Step 3 (Personal & ID) 
  * of the "Add Employee" process.
  */
-const StatutoryInfo = () => {
-  const [formData] = useState({
-    fatherName: "Suresh Sharma",
-    dob: "1992-05-24",
-    address: "B-402, Royal Residency, Opp. Central Park, Ahmedabad, Gujarat 380054",
-    aadhaar: "XXXX XXXX 5432",
-    pan: "ABCDE1234F"
-  });
+const StatutoryInfo = ({ employee, onChange }) => {
+  const formData = {
+    fatherName: employee?.fatherName || "",
+    dob: employee?.dob ? new Date(employee.dob).toISOString().split('T')[0] : "",
+    address: employee?.address || "",
+    aadhaar: employee?.aadhaar ? `XXXX XXXX ${employee.aadhaar.slice(-4)}` : "Not Provided",
+    pan: employee?.pan || "PENDING",
+    differentlyAbled: employee?.differentlyAbled ? "Yes" : "No",
+    profTax: employee?.profTax ? "Active" : "Exempt",
+    pfEnabled: employee?.pfEnabled ? "Active" : "Exempt",
+    tds: employee?.tds ? "Active" : "Exempt"
+  };
 
   return (
     <div className="bg-white p-6 sm:p-10 rounded-xl border border-slate-200 shadow-sm overflow-hidden relative group">
@@ -41,10 +45,11 @@ const StatutoryInfo = () => {
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Father's Name</label>
            </div>
            <input 
+              name="fatherName"
               type="text"
-              defaultValue={formData.fatherName}
-              className="w-full px-5 py-3.5 rounded-xl border border-slate-100 bg-slate-50 text-[#042f2e] text-[13px] font-bold outline-none cursor-default"
-              readOnly
+              value={formData.fatherName}
+              onChange={onChange}
+              className="w-full px-5 py-3.5 rounded-xl border border-slate-100 bg-white text-[#042f2e] text-[13px] font-bold outline-none hover:border-slate-200 focus:border-[#042f2e] transition-all"
            />
         </div>
 
@@ -54,10 +59,11 @@ const StatutoryInfo = () => {
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Date of Birth</label>
            </div>
            <input 
-              type="text"
-              defaultValue={formData.dob}
-              className="w-full px-5 py-3.5 rounded-xl border border-slate-100 bg-slate-50 text-[#042f2e] text-[13px] font-bold outline-none cursor-default"
-              readOnly
+              name="dob"
+              type="date"
+              value={formData.dob}
+              onChange={onChange}
+              className="w-full px-5 py-3.5 rounded-xl border border-slate-100 bg-white text-[#042f2e] text-[13px] font-bold outline-none hover:border-slate-200 focus:border-[#042f2e] transition-all"
            />
         </div>
 
@@ -68,10 +74,11 @@ const StatutoryInfo = () => {
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Residential Address</label>
            </div>
            <textarea 
+              name="address"
               rows={2}
-              defaultValue={formData.address}
-              className="w-full px-5 py-3.5 rounded-xl border border-slate-100 bg-slate-50 text-[#042f2e] text-[13px] font-bold outline-none cursor-default resize-none leading-relaxed"
-              readOnly
+              value={formData.address}
+              onChange={onChange}
+              className="w-full px-5 py-3.5 rounded-xl border border-slate-100 bg-white text-[#042f2e] text-[13px] font-bold outline-none hover:border-slate-200 focus:border-[#042f2e] transition-all resize-none leading-relaxed"
            />
         </div>
 
@@ -84,8 +91,8 @@ const StatutoryInfo = () => {
            <div className="relative">
               <input 
                  type="text"
-                 defaultValue={formData.aadhaar}
-                 className="w-full px-5 py-3.5 rounded-xl border border-slate-100 bg-slate-50 text-[#042f2e] text-[13px] font-bold outline-none cursor-default"
+                 value={formData.aadhaar}
+                 className="w-full px-5 py-3.5 rounded-xl border border-slate-100 bg-slate-50 text-[#042f2e] text-[13px] font-bold outline-none cursor-not-allowed"
                  readOnly
               />
               <ShieldCheck size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-emerald-500" />
@@ -99,8 +106,60 @@ const StatutoryInfo = () => {
            </div>
            <input 
               type="text"
-              defaultValue={formData.pan}
-              className="w-full px-5 py-3.5 rounded-xl border border-slate-100 bg-slate-50 text-[#042f2e] text-[13px] font-bold outline-none cursor-default"
+              value={formData.pan}
+              className="w-full px-5 py-3.5 rounded-xl border border-slate-100 bg-slate-50 text-[#042f2e] text-[13px] font-bold outline-none cursor-not-allowed"
+              readOnly
+           />
+        </div>
+
+        <div className="space-y-2">
+           <div className="flex items-center gap-2 mb-1">
+              <ShieldCheck size={12} className="text-slate-300" />
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Differently Abled Status</label>
+           </div>
+           <input 
+              type="text"
+              value={formData.differentlyAbled}
+              className="w-full px-5 py-3.5 rounded-xl border border-slate-100 bg-slate-50 text-[#042f2e] text-[13px] font-bold outline-none cursor-not-allowed"
+              readOnly
+           />
+        </div>
+
+        <div className="space-y-2">
+           <div className="flex items-center gap-2 mb-1">
+              <ShieldCheck size={12} className="text-slate-300" />
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Professional Tax (PT)</label>
+           </div>
+           <input 
+              type="text"
+              value={formData.profTax}
+              className="w-full px-5 py-3.5 rounded-xl border border-slate-100 bg-slate-50 text-[#042f2e] text-[13px] font-bold outline-none cursor-not-allowed"
+              readOnly
+           />
+        </div>
+
+        <div className="space-y-2">
+           <div className="flex items-center gap-2 mb-1">
+              <ShieldCheck size={12} className="text-slate-300" />
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Provident Fund (PF)</label>
+           </div>
+           <input 
+              type="text"
+              value={formData.pfEnabled}
+              className="w-full px-5 py-3.5 rounded-xl border border-slate-100 bg-slate-50 text-[#042f2e] text-[13px] font-bold outline-none cursor-not-allowed"
+              readOnly
+           />
+        </div>
+
+        <div className="space-y-2">
+           <div className="flex items-center gap-2 mb-1">
+              <ShieldCheck size={12} className="text-slate-300" />
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Income Tax (TDS)</label>
+           </div>
+           <input 
+              type="text"
+              value={formData.tds}
+              className="w-full px-5 py-3.5 rounded-xl border border-slate-100 bg-slate-50 text-[#042f2e] text-[13px] font-bold outline-none cursor-not-allowed"
               readOnly
            />
         </div>

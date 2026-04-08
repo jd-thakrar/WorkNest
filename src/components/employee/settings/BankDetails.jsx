@@ -1,7 +1,12 @@
 import React from "react";
 import { CreditCard, ShieldCheck, Wallet, Landmark, Hash } from "lucide-react";
 
-const BankDetails = () => {
+const BankDetails = ({ employee }) => {
+  const maskAccount = (num) => {
+    if (!num) return "Not Provided";
+    return `**** **** ${num.slice(-4)}`;
+  };
+
   return (
     <div className="bg-white p-6 sm:p-10 rounded-xl border border-slate-200 shadow-sm overflow-hidden relative group">
       {/* Header */}
@@ -28,8 +33,9 @@ const BankDetails = () => {
             </div>
             <input 
                type="text" 
-               defaultValue="HDFC Bank Ltd." 
+               defaultValue={employee?.bankName || "Not Provided"} 
                className="w-full bg-slate-50 border border-slate-100 rounded-xl px-5 py-3.5 text-[13px] font-bold text-[#042f2e] focus:border-[#042f2e] transition-all outline-none" 
+               readOnly
             />
          </div>
          
@@ -40,8 +46,9 @@ const BankDetails = () => {
             </div>
             <input 
                type="text" 
-               defaultValue="Chirag Parekh" 
+               defaultValue={employee?.accountHolder || `${employee?.firstName} ${employee?.lastName}` || "Unknown"} 
                className="w-full bg-slate-50 border border-slate-100 rounded-xl px-5 py-3.5 text-[13px] font-bold text-[#042f2e] focus:border-[#042f2e] transition-all outline-none" 
+               readOnly
             />
          </div>
 
@@ -52,8 +59,9 @@ const BankDetails = () => {
             </div>
             <input 
                type="text" 
-               defaultValue="**** **** 5432" 
+               defaultValue={maskAccount(employee?.accountNumber)} 
                className="w-full bg-slate-50 border border-slate-100 rounded-xl px-5 py-3.5 text-[13px] font-bold text-[#042f2e] focus:border-[#042f2e] transition-all outline-none" 
+               readOnly
             />
          </div>
 
@@ -64,8 +72,9 @@ const BankDetails = () => {
             </div>
             <input 
                type="text" 
-               defaultValue="HDFC0001234" 
+               defaultValue={employee?.ifsc || "Not Provided"} 
                className="w-full bg-slate-50 border border-slate-100 rounded-xl px-5 py-3.5 text-[13px] font-bold text-[#042f2e] focus:border-[#042f2e] transition-all outline-none" 
+               readOnly
             />
          </div>
       </div>

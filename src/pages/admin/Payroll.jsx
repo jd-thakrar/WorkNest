@@ -24,7 +24,8 @@ const calcPayrollRow = (empId, employees, financials, daysInMonth = 30) => {
   const emp = employees.find(e => e.id === empId);
   if (!emp) return null;
 
-  const f = financials.find(fin => fin.id === empId && fin.month === (window.currentPayrollCycle || 'March 2026'));
+  const currentDynamicMonth = new Date().toLocaleString('en-US', { month: 'long', year: 'numeric' });
+  const f = financials.find(fin => fin.id === empId && fin.month === (window.currentPayrollCycle || currentDynamicMonth));
   const isDraft = !f;
   
   const basic = f?.basic || emp.baseSalary;
@@ -311,25 +312,36 @@ const ClaimsDrawer = ({ onClose }) => {
              </div>
              
              <div className="flex items-center justify-between mt-4 pb-4 border-b border-gray-50">
-                <div>
+                <div className="flex-1">
                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{c.type}</p>
-                   <p className="text-[13px] font-bold text-[#042f2e]">{c.description || 'System Request'}</p>
+                   {c.status !== 'Rejected' ? (
+                      <input 
+                         type="text"
+                         defaultValue={c.description}
+                         onBlur={async (e) => {
+                            if (e.target.value === c.description) return;
+                            // Add edit description logic if needed, but for now focus on amount
+                         }}
+                         className="text-[13px] font-bold text-[#042f2e] bg-transparent border-none focus:ring-0 w-full p-0"
+                      />
+                   ) : (
+                      <p className="text-[13px] font-bold text-[#042f2e]">{c.description || 'System Request'}</p>
+                   )}
                 </div>
                 <div className="text-right">
-                   {c.status === 'Pending' ? (
-                      <div className="flex items-center gap-1.5 justify-end">
-                         <span className="text-sm font-black text-teal-600">₹</span>
-                         <input 
-                           type="number" 
-                           value={customAmounts[c._id] !== undefined ? customAmounts[c._id] : c.amount}
-                           onChange={(e) => setCustomAmounts({...customAmounts, [c._id]: e.target.value})}
-                           className="w-24 bg-teal-50 text-teal-600 text-right font-black text-sm outline-none rounded-lg py-1 px-2 border border-teal-100 focus:ring-2 focus:ring-teal-500/20"
-                         />
-                      </div>
-                   ) : (
-                      <p className="text-base font-black text-teal-600 tracking-tight">₹{c.amount.toLocaleString('en-IN')}</p>
-                   )}
-                   <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest mt-1">{new Date(c.createdAt).toLocaleDateString()}</p>
+                    <div className="flex items-center gap-1.5 justify-end">
+                        <span className="text-sm font-black text-teal-600">₹</span>
+                        <input 
+                          type="number" 
+                          disabled={c.status === 'Rejected'}
+                          value={customAmounts[c._id] !== undefined ? customAmounts[c._id] : c.amount}
+                          onChange={(e) => setCustomAmounts({...customAmounts, [c._id]: e.target.value})}
+                          className={`w-24 text-right font-black text-sm outline-none rounded-lg py-1 px-2 border transition-all ${
+                            c.status === 'Rejected' ? 'bg-gray-50 text-gray-400 border-gray-100' : 'bg-teal-50 text-teal-600 border-teal-100 focus:ring-2 focus:ring-teal-500/20'
+                          }`}
+                        />
+                    </div>
+                    <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest mt-1">{new Date(c.createdAt).toLocaleDateString()}</p>
                 </div>
              </div>
 
@@ -342,14 +354,34 @@ const ClaimsDrawer = ({ onClose }) => {
                    <span className="text-[10px] text-gray-300 font-bold uppercase tracking-widest">No Receipt</span>
                 )}
 
-                {c.status === 'Pending' ? (
-                   <div className="flex gap-2">
-                     <button onClick={() => handleUpdate(c._id, 'Rejected', c.amount)} className="px-4 py-2 bg-rose-50 text-rose-600 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-rose-500 hover:text-white transition-all">Reject</button>
-                     <button onClick={() => handleUpdate(c._id, 'Approved', c.amount)} className="px-4 py-2 bg-emerald-50 text-emerald-600 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-emerald-500 hover:text-white transition-all">Approve</button>
-                   </div>
-                ) : (
-                   <span className="text-[9px] font-bold text-gray-300 uppercase tracking-widest">Processed</span>
-                )}
+                <div className="flex gap-2">
+                   {c.status !== 'Rejected' && (
+                     <>
+                        <button 
+                           onClick={() => handleUpdate(c._id, 'Rejected', c.amount)} 
+                           className="px-4 py-2 bg-rose-50 text-rose-600 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-rose-500 hover:text-white transition-all flex items-center gap-1.5"
+                        >
+                           <X size={14} /> Reject
+                        </button>
+                        {(c.status === 'Pending' || customAmounts[c._id] !== undefined) && (
+                          <button 
+                             onClick={() => handleUpdate(c._id, 'Approved', c.amount)} 
+                             className="px-4 py-2 bg-emerald-50 text-emerald-600 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-emerald-500 hover:text-white transition-all flex items-center gap-1.5"
+                          >
+                             <Save size={14} /> {c.status === 'Approved' ? 'Update' : 'Approve'}
+                          </button>
+                        )}
+                     </>
+                   )}
+                   {c.status === 'Rejected' && (
+                      <button 
+                        onClick={() => handleUpdate(c._id, 'Pending', c.amount)} 
+                        className="px-4 py-2 bg-gray-100 text-gray-500 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-[#042f2e] hover:text-white transition-all"
+                      >
+                         Re-Open
+                      </button>
+                   )}
+                </div>
              </div>
           </div>
         ))}

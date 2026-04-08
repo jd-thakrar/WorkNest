@@ -16,101 +16,175 @@ export const GlobalProvider = ({ children }) => {
     prevMonthDate.setMonth(prevMonthDate.getMonth() - 1);
     return {
       isLocked: false,
-      cycle: prevMonthDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
+      cycle: prevMonthDate.toLocaleDateString("en-US", {
+        month: "long",
+        year: "numeric",
+      }),
     };
   });
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(window.innerWidth < 1024);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(
+    window.innerWidth < 1024,
+  );
 
   // Synchronize ALL backend data seamlessly to remove dummy data permanently
   const syncGlobalData = async () => {
     if (!user) return;
     try {
-      const headers = { "Authorization": `Bearer ${user.token}` };
-      const [empRes, teamRes, taskRes, attRes, leaveRes, payRes] = await Promise.all([
-        fetch(`${API_URL}/employees`, { headers }),
-        fetch(`${API_URL}/teams`, { headers }),
-        fetch(`${API_URL}/tasks`, { headers }),
-        fetch(`${API_URL}/attendance`, { headers }),
-        fetch(`${API_URL}/attendance/leaves`, { headers }),
-        fetch(`${API_URL}/payroll`, { headers })
-      ]);
+      const headers = { Authorization: `Bearer ${user.token}` };
+      
+      // If employee, limit initial fetches to avoid 401s
+      if (user.role === 'admin') {
+        const [empRes, teamRes, taskRes, attRes, leaveRes, payRes] =
+          await Promise.all([
+            fetch(`${API_URL}/employees`, { headers }),
+            fetch(`${API_URL}/teams`, { headers }),
+            fetch(`${API_URL}/tasks`, { headers }),
+            fetch(`${API_URL}/attendance`, { headers }),
+            fetch(`${API_URL}/attendance/leaves`, { headers }),
+            fetch(`${API_URL}/payroll`, { headers }),
+          ]);
 
-      if (empRes.ok) {
-        const emps = await empRes.json();
-        // Flatten into required format for UI
-        setEmployees(emps.map(e => ({ 
-           id: e._id, name: `${e.firstName} ${e.lastName}`, 
-           role: e.designation, dept: e.department, 
-           avatar: `https://ui-avatars.com/api/?name=${e.firstName}+${e.lastName}&background=random`,
-           email: e.email, status: 'Active', type: e.type,
-           joiningDate: e.joiningDate || e.createdAt,
-            baseSalary: Number(e.salary || e.basicSalary || e.basic || e.rate || 0),
-            hraAmount: Number(e.hra || 0),
-            totalAllowances: Number(e.travel || 0) + Number(e.daily || 0) + (Array.isArray(e.otherAllowances) ? e.otherAllowances.reduce((sum, i) => sum + Number(i.amount || 0), 0) : 0),
-            pfEnabled: Boolean(e.pfEnabled),
-            pfEmployee: Number(e.pfEmployee || 0),
-            profTax: Boolean(e.profTax),
-            tds: Boolean(e.tds),
-            totalOtherDeduct: Array.isArray(e.otherDeductions) ? e.otherDeductions.reduce((sum, i) => sum + Number(i.amount || 0), 0) : 0
-        })));
+        let rawEmps = [];
+        if (empRes.ok) rawEmps = await empRes.json();
+        
+        if (rawEmps.length > 0) {
+           setEmployees(formatEmployees(rawEmps));
+        }
+        
+        if (teamRes.ok) setTeams(formatTeams(await teamRes.json()));
+        if (taskRes.ok) setTasks(formatTasks(await taskRes.json()));
+        if (attRes.ok) setAttendance(formatAttendance(await attRes.json()));
+        if (leaveRes.ok) setLeaveRequests(formatLeaves(await leaveRes.json()));
+        if (payRes.ok) setFinancials(formatFinancials(await payRes.json()));
+
+      } else {
+        // Employee Logic: Fetch only what's allowed via self endpoints
+        const [dashRes, taskRes, attRes, leaveRes] = await Promise.all([
+          fetch(`${API_URL}/employee-self/dashboard`, { headers }),
+          fetch(`${API_URL}/employee-self/tasks`, { headers }),
+          fetch(`${API_URL}/employee-self/attendance`, { headers }),
+          fetch(`${API_URL}/employee-self/leaves`, { headers }),
+        ]);
+
+        if (dashRes.ok) {
+          const dash = await dashRes.json();
+          // Inject themselves into employee list for context compatibility
+          setEmployees([{
+             id: user.id || user._id,
+             ...dash.employee,
+             name: `${dash.employee.firstName} ${dash.employee.lastName}`,
+          }]);
+        }
+
+        if (taskRes.ok) {
+          const data = await taskRes.json();
+          setTasks(data.tasks.map(t => ({ ...t, name: t.title })));
+        }
+        
+        if (attRes.ok) setAttendance(await attRes.json());
+        if (leaveRes.ok) {
+          const lData = await leaveRes.json();
+          setLeaveRequests(lData.requests);
+        }
       }
-      if (teamRes.ok) {
-         const tms = await teamRes.json();
-         setTeams(tms.map(t => ({ id: t._id, name: t.name, color: t.color || 'blue', lead: t.lead ? t.lead._id : null, membersRaw: t.members })));
-      }
-      if (taskRes.ok) {
-         const tsks = await taskRes.json();
-         setTasks(tsks.map(t => ({
-            id: t._id, name: t.name, description: t.description, priority: t.priority,
-            teamId: t.teamId?._id, teamName: t.teamId?.name, 
-            members: t.members.map(m => m._id),
-            startDate: t.startDate?.split('T')[0], endDate: t.endDate?.split('T')[0],
-            status: t.status, category: t.category
-         })));
-      }
-      if (attRes.ok) {
-         const atts = await attRes.json();
-         setAttendance(atts.map(a => ({
-           id: a._id, empId: a.empId._id, date: a.date, checkIn: a.checkIn, checkOut: a.checkOut, status: a.status
-         })));
-      }
-      if (leaveRes.ok) {
-         const lvs = await leaveRes.json();
-         setLeaveRequests(lvs.map(l => ({
-           id: l._id, empId: l.empId._id, type: l.type, from: l.from, to: l.to, days: l.days, reason: l.reason, status: l.status
-         })));
-      }
-      // Populate payroll/financials
-      if (payRes.ok) {
-          const pays = await payRes.json();
-          // Store raw array of all historical payroll records
-          setFinancials(pays.map(p => ({
-            _id: p._id, // Original Record ID for API calls
-            id: p.empId._id, // Employee ID for lookup
-            month: p.month, 
-            basic: p.basic, 
-            hra: p.hra, 
-            allowances: p.allowances, 
-            gross: p.gross, 
-            deductions: p.deductions, 
-            lop: p.lop || 0,
-            net: p.net, 
-            status: p.status 
-          })));
-      }
-    } catch (err) { console.error("Global Sync Error:", err); }
+    } catch (err) {
+      console.error("Global Sync Error:", err);
+    }
   };
 
-  useEffect(() => { syncGlobalData(); }, [user]);
+  // Helper formatters to keep code clean
+  const formatEmployees = (raw) => raw.map((e) => ({
+    id: e._id,
+    name: `${e.firstName} ${e.lastName}`,
+    role: e.designation,
+    dept: e.department,
+    avatar: `https://ui-avatars.com/api/?name=${e.firstName}+${e.lastName}&background=random`,
+    email: e.email,
+    status: "Active",
+    type: e.type,
+    joiningDate: e.joiningDate || e.createdAt,
+    baseSalary: Number(e.salary || e.basicSalary || e.basic || e.rate || 0),
+    hraAmount: Number(e.hra || 0),
+    totalAllowances: Number(e.travel || 0) + Number(e.daily || 0) + (Array.isArray(e.otherAllowances) ? e.otherAllowances.reduce((sum, i) => sum + Number(i.amount || 0), 0) : 0),
+    pan: e.pan,
+    accountNumber: e.accountNumber,
+    pfEnabled: Boolean(e.pfEnabled),
+    pfEmployee: Number(e.pfEmployee || 0),
+    profTax: Boolean(e.profTax),
+    tds: Boolean(e.tds),
+    totalOtherDeduct: Array.isArray(e.otherDeductions) ? e.otherDeductions.reduce((sum, i) => sum + Number(i.amount || 0), 0) : 0,
+  }));
+
+  const formatTeams = (raw) => raw.map((t) => ({
+    id: t._id,
+    name: t.name,
+    color: t.color || "blue",
+    lead: t.lead ? t.lead._id : null,
+    membersRaw: t.members,
+  }));
+
+  const formatTasks = (raw) => raw.map((t) => ({
+    id: t._id,
+    name: t.name,
+    description: t.description,
+    priority: t.priority,
+    teamId: t.teamId?._id,
+    teamName: t.teamId?.name,
+    members: t.members.map((m) => m._id),
+    startDate: t.startDate?.split("T")[0],
+    endDate: t.endDate?.split("T")[0],
+    status: t.status,
+    category: t.category,
+  }));
+
+  const formatAttendance = (raw) => raw.map((a) => ({
+    id: a._id,
+    empId: a.empId?._id || a.empId,
+    date: a.date,
+    checkIn: a.checkIn,
+    checkOut: a.checkOut,
+    status: a.status,
+  }));
+
+  const formatLeaves = (raw) => raw.map((l) => ({
+    id: l._id,
+    empId: l.empId?._id || l.empId,
+    type: l.type,
+    from: l.from,
+    to: l.to,
+    days: l.days,
+    reason: l.reason,
+    status: l.status,
+  }));
+
+  const formatFinancials = (raw) => raw.map((p) => ({
+    _id: p._id,
+    id: p.empId?._id || p.empId,
+    month: p.month,
+    basic: p.basic,
+    hra: p.hra,
+    allowances: p.allowances,
+    gross: p.gross,
+    deductions: p.deductions,
+    reimbursements: p.reimbursements || 0,
+    lop: p.lop || 0,
+    loanDeduction: p.loanDeduction || 0,
+    net: p.net,
+    status: p.status,
+  }));
+
+  useEffect(() => {
+    syncGlobalData();
+  }, [user]);
 
   // Derived teams
   const teamsWithMembers = teams.map((t) => ({
     ...t,
-    members: employees.filter((e) => 
-      t.membersRaw?.some(rm => {
-         const rmId = typeof rm === 'object' ? (rm._id || rm.id) : rm;
-         return String(rmId) === String(e.id);
-      })
+    members: employees.filter((e) =>
+      t.membersRaw?.some((rm) => {
+        const rmId = typeof rm === "object" ? rm._id || rm.id : rm;
+        return String(rmId) === String(e.id);
+      }),
     ),
   }));
 
@@ -120,16 +194,24 @@ export const GlobalProvider = ({ children }) => {
   return (
     <GlobalContext.Provider
       value={{
-        employees, setEmployees,
-        financials, setFinancials,
-        tasks, setTasks,
-        attendance, setAttendance,
-        teams, setTeams,
+        employees,
+        setEmployees,
+        financials,
+        setFinancials,
+        tasks,
+        setTasks,
+        attendance,
+        setAttendance,
+        teams,
+        setTeams,
         teamsWithMembers,
-        leaveRequests, setLeaveRequests,
-        payrollStatus, lockPayroll,
-        sidebarCollapsed, setSidebarCollapsed,
-        refreshGlobal: syncGlobalData
+        leaveRequests,
+        setLeaveRequests,
+        payrollStatus,
+        lockPayroll,
+        sidebarCollapsed,
+        setSidebarCollapsed,
+        refreshGlobal: syncGlobalData,
       }}
     >
       {children}

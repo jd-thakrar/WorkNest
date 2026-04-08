@@ -4,7 +4,7 @@ import path from 'path';
 import { 
   getEmployeeDashboard, getEmployeeTasks, punchAttendance, getEmployeeAttendance, 
   toggleBreak, updateNotes, updateTaskStatus, getEmployeeLeaves, applyLeave, 
-  applyReimbursement, getFinanceData // New controller
+  applyReimbursement, getFinanceData, updateEmployeeProfile
 } from '../controllers/employeeSelfController.js';
 import { protect } from '../middleware/authMiddleware.js';
 
@@ -41,5 +41,6 @@ router.post('/apply-leave', protect, applyLeave);
 // Finance Routes
 router.get('/finance', protect, getFinanceData);
 router.post('/finance/reimbursement', protect, upload.single('receipt'), applyReimbursement);
+router.put('/profile', protect, updateEmployeeProfile);
 
 export default router;

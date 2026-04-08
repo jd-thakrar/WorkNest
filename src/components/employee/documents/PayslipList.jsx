@@ -1,33 +1,8 @@
 import React from "react";
 import { FileDown, Eye, BadgeCheck, TrendingUp } from "lucide-react";
+import { generatePayslipPDF } from "../../../utils/pdfGenerator";
 
-const PayslipList = () => {
-  const payslips = [
-    {
-      month: "February 2026",
-      amount: "₹84,000",
-      date: "Feb 28, 2026",
-      status: "Disbursed",
-    },
-    {
-      month: "January 2026",
-      amount: "₹82,500",
-      date: "Jan 31, 2026",
-      status: "Disbursed",
-    },
-    {
-      month: "December 2025",
-      amount: "₹82,500",
-      date: "Dec 31, 2025",
-      status: "Disbursed",
-    },
-    {
-      month: "November 2025",
-      amount: "₹82,500",
-      date: "Nov 30, 2025",
-      status: "Disbursed",
-    },
-  ];
+const PayslipList = ({ payslips = [] }) => {
 
   return (
     <div className="divide-y divide-slate-50">
@@ -37,9 +12,12 @@ const PayslipList = () => {
           className="px-10 py-8 flex items-center justify-between group hover:bg-slate-50/50 transition-colors"
         >
           <div className="flex items-center gap-6">
-            <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-white group-hover:text-teal-600 group-hover:shadow-lg group-hover:shadow-teal-900/5 transition-all">
+            <button 
+              onClick={() => generatePayslipPDF(p)}
+              className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-white group-hover:text-teal-600 group-hover:shadow-lg group-hover:shadow-teal-900/5 transition-all"
+            >
               <FileDown size={22} />
-            </div>
+            </button>
             <div>
               <h5 className="text-[15px] font-bold text-slate-900 tracking-tight uppercase leading-none mb-2">
                 {p.month}
@@ -59,14 +37,17 @@ const PayslipList = () => {
           <div className="flex items-center gap-8">
             <div className="text-right hidden sm:block">
               <p className="text-[14px] font-black text-[#042f2e]">
-                {p.amount}
+                ₹{p.amount}
               </p>
               <div className="flex items-center justify-end gap-1 text-[9px] font-bold text-teal-600 uppercase">
                 <TrendingUp size={10} /> Full Pay
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <button className="p-3 text-slate-300 hover:text-teal-600 hover:bg-teal-50 rounded-xl transition-all">
+              <button 
+                onClick={() => generatePayslipPDF(p)}
+                className="p-3 text-slate-300 hover:text-teal-600 hover:bg-teal-50 rounded-xl transition-all tooltip group"
+              >
                 <Eye size={20} />
               </button>
             </div>
