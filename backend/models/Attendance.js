@@ -13,7 +13,7 @@ const AttendanceSchema = new mongoose.Schema({
   totalWorkingHours: { type: String, default: '0h 0m' },
   status: { 
     type: String, 
-    enum: ['NOT_STARTED', 'ACTIVE', 'ON_BREAK', 'COMPLETED'], 
+    enum: ['NOT_STARTED', 'ACTIVE', 'ON_BREAK', 'COMPLETED', 'Present', 'Absent', 'Late', 'ON_LEAVE'], 
     default: 'NOT_STARTED' 
   },
   notes: { type: String, default: '' },

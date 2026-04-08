@@ -12,9 +12,11 @@ const HeroAttendanceCard = ({ data, employee }) => {
   const [liveTime, setLiveTime] = useState(data?.timer || "00:00:00");
   const [isProcessing, setIsProcessing] = useState(false);
 
+  const isClockedIn = ["Clocked In", "Late", "Present", "ACTIVE"].includes(status);
+
   useEffect(() => {
     let interval;
-    if (status === "Clocked In") {
+    if (isClockedIn && status !== "ON_BREAK") {
       interval = setInterval(() => {
         setLiveTime(prev => {
           if (!prev) return "00:00:00";
@@ -32,7 +34,7 @@ const HeroAttendanceCard = ({ data, employee }) => {
       }, 1000);
     }
     return () => clearInterval(interval);
-  }, [status]);
+  }, [status, isClockedIn]);
 
   const handlePunch = async () => {
     setIsProcessing(true);
@@ -64,7 +66,6 @@ const HeroAttendanceCard = ({ data, employee }) => {
     }
   };
 
-  const isClockedIn = status === "Clocked In";
 
   return (
     <motion.div 

@@ -348,20 +348,23 @@ const Reports = () => {
           const empAtts = attendance.filter(a => {
              if (!a.date) return false;
              const d = new Date(a.date);
-             return d.getMonth() === targetMonth && d.getFullYear() === targetYear && (a.empId === e.id || a.empId === e._id);
+             const aEmpId = String(a.empId?._id || a.empId);
+             const eId = String(e._id || e.id);
+             return d.getMonth() === targetMonth && d.getFullYear() === targetYear && aEmpId === eId;
           });
           return {
             name: e.name,
             dept: e.dept,
-            p: empAtts.filter(a => a.status === 'Present').length,
+            p: empAtts.filter(a => ["Present", "Late", "ACTIVE", "COMPLETED", "ON_BREAK"].includes(a.status)).length,
             a: empAtts.filter(a => a.status === 'Absent').length,
             l: empAtts.filter(a => a.status === 'Late').length,
-            ol: empAtts.filter(a => a.status === 'On Leave').length
+            ol: empAtts.filter(a => a.status === 'ON_LEAVE').length
           };
         });
-        // Filter: only keep employees who actually have ANY attendance record this month
-        const rowsWithData = rows.filter(r => r.p > 0 || r.a > 0 || r.l > 0 || r.ol > 0);
-        rows = rowsWithData;
+        
+        // Ensure even empty rows show up so the table isn't invisible
+        // const rowsWithData = rows.filter(r => r.p > 0 || r.a > 0 || r.l > 0 || r.ol > 0);
+        // rows = rowsWithData;
 
         const totalP = rows.reduce((acc, r) => acc + r.p, 0);
         const totalA = rows.reduce((acc, r) => acc + r.a, 0);

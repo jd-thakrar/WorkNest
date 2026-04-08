@@ -78,7 +78,9 @@ export const getEmployeeDashboard = async (req, res) => {
     }).length;
 
     const attendanceSummary = {
-      status: record?.status === 'ACTIVE' ? 'Clocked In' : (record?.status === 'ON_BREAK' ? 'On Break' : (record?.status === 'COMPLETED' ? 'Session Secured' : 'Ready')), 
+      status: (record?.status === 'ACTIVE' || record?.status === 'Late' || record?.status === 'Present') 
+        ? 'Clocked In' 
+        : (record?.status === 'ON_BREAK' ? 'On Break' : (record?.status === 'COMPLETED' ? 'Session Secured' : 'Ready')), 
       mode: 'Office',
       lastPunch: record?.checkIn || 'Not Punched',
       timer: '00:00:00',
@@ -264,8 +266,8 @@ export const punchAttendance = async (req, res) => {
        return res.status(400).json({ message: 'Please secure break session first' });
     }
 
-    // 4. Punch Out (ACTIVE -> COMPLETED)
-    if (record.status === 'ACTIVE') {
+    // 4. Punch Out (ACTIVE/Late -> COMPLETED)
+    if (record.status === 'ACTIVE' || record.status === 'Late') {
        record.checkOut = currentTime;
        record.status = 'COMPLETED';
        
@@ -386,8 +388,8 @@ export const toggleBreak = async (req, res) => {
       return res.status(400).json({ message: 'No active session' });
     }
 
-    if (record.status === 'ACTIVE') {
-      // Start Break: ACTIVE -> ON_BREAK
+    if (record.status === 'ACTIVE' || record.status === 'Late') {
+      // Start Break: ACTIVE/Late -> ON_BREAK
       record.status = 'ON_BREAK';
       record.breaks.push({ start: currentTime });
       await record.save();
