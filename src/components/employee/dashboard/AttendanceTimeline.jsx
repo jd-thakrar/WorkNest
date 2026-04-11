@@ -1,7 +1,8 @@
 import React from "react";
 import { CheckCircle2, AlertCircle, Clock, Calendar } from "lucide-react";
 
-const AttendanceTimeline = ({ status }) => {
+const AttendanceTimeline = ({ attendance }) => {
+  const status = attendance?.weeklyStatus || [];
   return (
     <div className="bg-white p-5 rounded-xl border border-slate-200/60 shadow-sm relative overflow-hidden">
       <div className="flex items-center justify-between mb-4">
@@ -47,9 +48,9 @@ const AttendanceTimeline = ({ status }) => {
             <div
               className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${
                 item.status === "present"
-                  ? "bg-slate-50 border border-slate-100 text-emerald-600"
+                  ? "bg-emerald-50 border border-emerald-100 text-emerald-600"
                   : item.status === "late"
-                    ? "bg-slate-50 border border-slate-100 text-amber-600"
+                    ? "bg-amber-50 border border-amber-100 text-amber-600"
                     : item.status === "leave"
                       ? "bg-teal-50 border border-teal-100 text-teal-600"
                       : item.status === "today"
@@ -62,9 +63,10 @@ const AttendanceTimeline = ({ status }) => {
               {item.status === "leave" && <Calendar size={14} />}
               {item.status === "today" && <Clock size={14} />}
               {item.status === "absent" && (
-                <div className="w-1 h-1 rounded-full bg-slate-200" />
+                <div className="w-1 h-1 rounded-full bg-slate-300" />
               )}
             </div>
+
           </div>
         ))}
       </div>
@@ -73,7 +75,7 @@ const AttendanceTimeline = ({ status }) => {
         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
           Average Login
         </p>
-        <p className="text-[14px] font-black text-[#042f2e]">09:05 AM</p>
+        <p className="text-[14px] font-black text-[#042f2e]">{attendance?.avgLogin || "09:00 AM"}</p>
       </div>
     </div>
   );

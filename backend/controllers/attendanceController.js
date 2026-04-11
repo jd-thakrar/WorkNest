@@ -36,18 +36,41 @@ export const getAttendance = async (req, res) => {
     });
 
     const mapped = attendance.map(r => {
-       let worked = '0h 0m';
-       if (r.checkIn && r.checkOut) {
-          const start = new Date(`2000-01-01 ${r.checkIn}`);
-          const end = new Date(`2000-01-01 ${r.checkOut}`);
-          const diffMs = end - start - ((r.totalBreakTime || 0) * 60 * 1000);
-          const diffHrs = Math.floor(diffMs / 3600000);
-          const diffMins = Math.floor((diffMs % 3600000) / 60000);
-          worked = `${diffHrs}h ${diffMins}m`;
-       } else if (r.status === 'COMPLETED') {
-          worked = r.totalWorkingHours || '0h 0m';
-       }
-       return { ...r._doc, workedHours: worked };
+        let worked = '0h 0m';
+        const doc = r.toObject();
+        
+        const parseTimeStr = (t) => {
+           if (!t || t === '--') return null;
+           // Match format like "03:52 pm" or "3:52 PM"
+           const parts = String(t).match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+           if (!parts) return null;
+           let h = parseInt(parts[1]);
+           const m = parseInt(parts[2]);
+           const mod = parts[3].toUpperCase();
+           if (mod === 'PM' && h !== 12) h += 12;
+           if (mod === 'AM' && h === 12) h = 0;
+           return h * 60 + m;
+        };
+
+        const startMins = parseTimeStr(doc.checkIn);
+        const endMins = parseTimeStr(doc.checkOut);
+
+        // Dynamic Late Detection for Admin Side
+        let finalStatus = doc.status;
+        if (startMins !== null && startMins > (9 * 60 + 30)) {
+           finalStatus = 'Late';
+        }
+
+        if (startMins !== null && endMins !== null) {
+           const diffMins = endMins - startMins - (doc.totalBreakTime || 0);
+           const h = Math.floor(Math.max(0, diffMins) / 60);
+           const m = Math.max(0, diffMins) % 60;
+           worked = `${h}h ${m}m`;
+        } else if (doc.status === 'COMPLETED' || doc.status === 'ACTIVE' || doc.status === 'ON_BREAK') {
+           worked = doc.totalWorkingHours || '0h 0m';
+        }
+
+        return { ...doc, workedHours: worked, status: finalStatus };
     });
 
     res.json([...mapped, ...leaveRecords]);

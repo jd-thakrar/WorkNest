@@ -52,14 +52,18 @@ const Dashboard = () => {
         const dayStr = i === 0 ? "Today" : d.toLocaleDateString('en-US', { month: 'short', day: '2-digit' });
         const dayIso = getLocalDate(d);
         const dayAtts = attendance.filter(a => a.date === dayIso);
-        attChart.push({ 
-           d: dayStr, 
-           p: dayAtts.filter(a => ['Present', 'ACTIVE', 'ON_BREAK', 'COMPLETED', 'Late'].includes(a.status)).length,
-           l: dayAtts.filter(a => a.status === 'Late').length,
-           a: dayAtts.filter(a => a.status === 'Absent').length,
-           lv: dayAtts.filter(a => a.status === 'ON_LEAVE').length
-        });
-     }
+         const lv = dayAtts.filter(a => a.status === 'ON_LEAVE').length;
+         const late = dayAtts.filter(a => a.status === 'Late').length;
+         const onTime = dayAtts.filter(a => ['Present', 'ACTIVE', 'ON_BREAK', 'COMPLETED'].includes(a.status) && a.status !== 'Late').length;
+         attChart.push({ 
+            d: dayStr, 
+            p: onTime,
+            l: late,
+            a: Math.max(0, employees.length - onTime - late - lv),
+            lv
+         });
+
+      }
 
      const currentMonthStr = new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
      const totalNet = financials.filter(f => f.month === currentMonthStr).reduce((acc, f) => acc + (f.net || 0), 0);
@@ -483,56 +487,59 @@ const Dashboard = () => {
           title="Attendance Pulse"
           subtitle="Labor Presence for 10 Personnel (Daily Flow)"
         >
-          <div className="h-[300px] w-full mt-4 flex items-end justify-between px-4 pb-10 gap-4">
-            {DASHBOARD_DATA.attendance.map((row, i) => (
-              <div
-                key={i}
-                className="flex-1 flex flex-col items-center gap-3 group/bar h-full justify-end max-w-[80px] relative"
-              >
-                 {/* Precision Tooltip */}
-                 <div className="absolute -top-16 left-1/2 -translate-x-1/2 opacity-0 group-hover/bar:opacity-100 transition-all duration-300 z-50 bg-[#042f2e] text-white p-2 rounded-xl text-[8px] font-bold whitespace-nowrap shadow-2xl">
-                   <div className="text-emerald-400">Present: {row.p}/10</div>
-                   <div className="text-teal-400">Leave: {row.lv}</div>
-                   <div className="text-amber-400">Late: {row.l}</div>
-                   <div className="text-rose-400">Absent: {row.a}</div>
-                 </div>
- 
-                 <div className="flex-1 w-full flex flex-col justify-end gap-1 min-h-[200px]">
-                   {/* Present Segment */}
-                   {row.p > 0 && (
-                     <div
-                       className="w-full bg-[#042f2e] rounded-md transition-all duration-500 hover:brightness-125"
-                       style={{ height: `${row.p * 10}%` }}
-                     />
-                   )}
-                   {/* Leave Segment */}
-                   {row.lv > 0 && (
-                     <div
-                       className="w-full bg-teal-500 rounded-md transition-all duration-500 hover:brightness-110"
-                       style={{ height: `${row.lv * 10}%` }}
-                     />
-                   )}
-                   {/* Late Segment */}
-                   {row.l > 0 && (
-                     <div
-                       className="w-full bg-amber-400 rounded-md transition-all duration-500 hover:brightness-110"
-                       style={{ height: `${row.l * 10}%` }}
-                     />
-                   )}
-                   {/* Absent Segment */}
-                   {row.a > 0 && (
-                     <div
-                       className="w-full bg-rose-500 rounded-md transition-all duration-500 hover:brightness-110"
-                       style={{ height: `${row.a * 10}%` }}
-                     />
-                   )}
-                 </div>
-                <span className="text-[9px] font-bold text-gray-300 uppercase tracking-widest group-hover/bar:text-[#042f2e]">
-                  {row.d}
-                </span>
-              </div>
-            ))}
+          <div className="overflow-x-auto no-scrollbar pt-10">
+            <div className="h-[300px] min-w-[600px] flex items-end justify-between px-4 pb-10 gap-2 md:gap-4">
+              {DASHBOARD_DATA.attendance.map((row, i) => (
+                <div
+                  key={i}
+                  className="flex-1 flex flex-col items-center gap-3 group/bar h-full justify-end max-w-[80px] relative"
+                >
+                   {/* Precision Tooltip */}
+                   <div className="absolute -top-16 left-1/2 -translate-x-1/2 opacity-0 group-hover/bar:opacity-100 transition-all duration-300 z-50 bg-[#042f2e] text-white p-2 rounded-xl text-[8px] font-bold whitespace-nowrap shadow-2xl">
+                     <div className="text-emerald-400">Present: {row.p}/{employees.length}</div>
+                     <div className="text-teal-400">Leave: {row.lv}</div>
+                     <div className="text-amber-400">Late: {row.l}</div>
+                     <div className="text-rose-400">Absent: {row.a}</div>
+                   </div>
+   
+                   <div className="flex-1 w-full flex flex-col justify-end gap-1 min-h-[150px]">
+                     {/* Present Segment */}
+                     {row.p > 0 && (
+                       <div
+                         className="w-full bg-[#042f2e] rounded-md transition-all duration-500 hover:brightness-125 shadow-sm"
+                         style={{ height: `${(row.p / employees.length) * 100}%` }}
+                       />
+                     )}
+                     {/* Leave Segment */}
+                     {row.lv > 0 && (
+                       <div
+                         className="w-full bg-teal-500 rounded-md transition-all duration-500 hover:brightness-110 shadow-sm"
+                         style={{ height: `${(row.lv / employees.length) * 100}%` }}
+                       />
+                     )}
+                     {/* Late Segment */}
+                     {row.l > 0 && (
+                       <div
+                         className="w-full bg-amber-400 rounded-md transition-all duration-500 hover:brightness-110 shadow-sm"
+                         style={{ height: `${(row.l / employees.length) * 100}%` }}
+                       />
+                     )}
+                     {/* Absent Segment */}
+                     {row.a > 0 && (
+                       <div
+                         className="w-full bg-rose-500 rounded-md transition-all duration-500 hover:brightness-110 shadow-sm"
+                         style={{ height: `${(row.a / employees.length) * 100}%` }}
+                       />
+                     )}
+                   </div>
+                  <span className="text-[8px] md:text-[9px] font-bold text-gray-300 uppercase tracking-widest group-hover/bar:text-[#042f2e] text-center">
+                    {row.d}
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
+
         </ChartContainer>
 
         {/* Row 4: Payroll & Performers */}

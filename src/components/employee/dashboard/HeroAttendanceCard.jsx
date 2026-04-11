@@ -12,7 +12,7 @@ const HeroAttendanceCard = ({ data, employee }) => {
   const [liveTime, setLiveTime] = useState(data?.timer || "00:00:00");
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const isClockedIn = ["Clocked In", "Late", "Present", "ACTIVE"].includes(status);
+  const isClockedIn = ["Clocked In", "Late", "Present", "ACTIVE", "ON_BREAK"].includes(status);
 
   useEffect(() => {
     let interval;
@@ -49,11 +49,38 @@ const HeroAttendanceCard = ({ data, employee }) => {
       const result = await res.json();
       if (res.ok) {
         setStatus(result.status);
-        setLastPunch(result.lastPunch);
-        if (result.status === 'Ready') {
-           setLiveTime(result.timer);
+        if (result.time) setLastPunch(result.time);
+        if (result.status === 'Ready' || result.status === 'COMPLETED') {
+           if (result.timer) setLiveTime(result.timer);
         }
-        toast.success(result.status === 'Clocked In' ? 'Session Activated' : 'Session Secured', {
+        toast.success(result.status === 'Clocked In' || result.status === 'ACTIVE' || result.status === 'Late' ? 'Session Activated' : 'Session Secured', {
+          style: { borderRadius: '16px', background: '#042f2e', color: '#fff', fontSize: '10px', fontWeight: 'bold' }
+        });
+      } else {
+        toast.error(result.message);
+      }
+    } catch (err) {
+      toast.error('Sync failed');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleBreak = async () => {
+    if (!isClockedIn && status !== 'ON_BREAK') return;
+    setIsProcessing(true);
+    try {
+      const res = await fetch(`${API_URL}/employee-self/break`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${user.token}` 
+        }
+      });
+      const result = await res.json();
+      if (res.ok) {
+        setStatus(result.status);
+        toast.success(result.message, {
           style: { borderRadius: '16px', background: '#042f2e', color: '#fff', fontSize: '10px', fontWeight: 'bold' }
         });
       } else {
@@ -90,7 +117,11 @@ const HeroAttendanceCard = ({ data, employee }) => {
           
           <div className="flex flex-wrap items-center gap-8">
              <div className="flex items-center gap-3 px-4 py-2 bg-slate-50 border border-slate-100 rounded-2xl">
-                <div className={`w-2.5 h-2.5 rounded-full ${isClockedIn ? 'bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.5)] animate-pulse' : 'bg-slate-300'}`} />
+                <div className={`w-2.5 h-2.5 rounded-full ${
+                  !isClockedIn ? 'bg-slate-300' : 
+                  status === 'Late' ? 'bg-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.5)] animate-pulse' : 
+                  'bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.5)] animate-pulse'
+                }`} />
                 <span className="text-[10px] font-black text-[#042f2e] uppercase tracking-widest leading-none">{status}</span>
              </div>
              <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">
@@ -113,7 +144,7 @@ const HeroAttendanceCard = ({ data, employee }) => {
              <motion.button 
                whileHover={{ y: -4, scale: 1.02 }}
                whileTap={{ scale: 0.98 }}
-               disabled={isProcessing}
+               disabled={isProcessing || status === 'COMPLETED'}
                onClick={handlePunch}
                className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-10 py-5 rounded-[22px] font-black text-[11px] uppercase tracking-[0.15em] transition-all shadow-xl ${
                  isClockedIn 
@@ -129,7 +160,16 @@ const HeroAttendanceCard = ({ data, employee }) => {
                {isClockedIn ? 'Secure System' : 'Launch Session'}
              </motion.button>
              
-             <button className="w-14 h-14 flex items-center justify-center bg-white border border-slate-200 text-slate-400 hover:text-teal-600 hover:border-teal-500 group rounded-[22px] transition-all shadow-sm">
+             <button 
+               onClick={handleBreak}
+               disabled={isProcessing || (!isClockedIn && status !== 'ON_BREAK') || status === 'COMPLETED'}
+               className={`w-14 h-14 flex items-center justify-center border group rounded-[22px] transition-all shadow-sm ${
+                 status === 'ON_BREAK' 
+                 ? 'bg-amber-100 border-amber-300 text-amber-600 shadow-amber-900/10' 
+                 : 'bg-white border-slate-200 text-slate-400 hover:text-amber-600 hover:border-amber-500'
+               } disabled:opacity-50 text-center mx-auto`}
+               title={status === 'ON_BREAK' ? "End Break" : "Start Break"}
+             >
                 <Coffee size={24} className="group-hover:scale-110 transition-transform" />
              </button>
            </div>

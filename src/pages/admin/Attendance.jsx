@@ -82,7 +82,7 @@ const AttendanceTable = ({ data, onOverride }) => {
         </thead>
         <tbody className="divide-y divide-gray-50">
           {data.map((row) => {
-            const empName = row.empId?.firstName ? `${row.empId.firstName} ${row.empId.lastName}` : "Personnel";
+            const empName = row.empId?.firstName ? `${row.empId.firstName} ${row.empId.lastName}` : (row.empId?.name ? row.empId.name : (row.empId?.basic?.firstName ? `${row.empId.basic.firstName} ${row.empId.basic.lastName}` : "Personnel"));
             const state = STATUS_CONFIG[row.status] || STATUS_CONFIG["Present"];
 
             return (
@@ -90,7 +90,11 @@ const AttendanceTable = ({ data, onOverride }) => {
                 <td className="px-8 py-5">
                    <div className="flex items-center gap-4">
                       <div className="w-10 h-10 rounded-xl bg-slate-100 border border-slate-200 overflow-hidden shrink-0">
-                         <img src={row.empId?.avatar || "/default-avatar.png"} className="w-full h-full object-cover" alt="" />
+                         <img 
+                           src={row.empId?.avatar || `https://ui-avatars.com/api/?name=${row.empId?.firstName || 'P'}+${row.empId?.lastName || ''}&background=random`} 
+                           className="w-full h-full object-cover" 
+                           alt="" 
+                         />
                       </div>
                       <div>
                          <div className="text-sm font-bold text-[#042f2e]">{empName}</div>
@@ -157,15 +161,21 @@ const LeaveRequestsTable = ({ data, employees, onApprove, onReject, onEdit }) =>
         </thead>
         <tbody className="divide-y divide-gray-50">
           {data.map((req) => {
-            const emp = employees.find((e) => e.id === req.empId);
+            const resolveId = (id) => (id && typeof id === 'object') ? (id._id || id.id) : id;
+            const emp = employees.find((e) => String(e.id) === String(resolveId(req.empId)));
+            const empName = emp?.name || (req.empId?.firstName ? `${req.empId.firstName} ${req.empId.lastName}` : "Personnel");
             const style = LEAVE_STATUS_CONFIG[req.status] || LEAVE_STATUS_CONFIG["Pending"];
 
             return (
               <tr key={req.id} className="hover:bg-teal-50/10 transition-colors group">
                 <td className="px-8 py-5">
                   <div className="flex items-center gap-4">
-                    <img src={emp?.avatar} alt="" className="w-10 h-10 rounded-xl border border-gray-100" />
-                    <div className="text-sm font-bold text-[#042f2e]">{emp?.name}</div>
+                    <img 
+                      src={emp?.avatar || (req.empId?.avatar || `https://ui-avatars.com/api/?name=${emp?.name || 'User'}&background=random`)} 
+                      alt="" 
+                      className="w-10 h-10 rounded-xl border border-gray-100" 
+                    />
+                    <div className="text-sm font-bold text-[#042f2e]">{empName}</div>
                   </div>
                 </td>
                 <td className="px-6 py-5">
@@ -208,7 +218,7 @@ const LeaveRequestsTable = ({ data, employees, onApprove, onReject, onEdit }) =>
 
 const Attendance = () => {
   const { user } = useAuth();
-  const { employees, attendance, setAttendance, leaveRequests, setLeaveRequests } = useGlobal();
+  const { employees, attendance, setAttendance, leaveRequests, setLeaveRequests, refreshGlobal } = useGlobal();
   const [activeTab, setActiveTab] = useState("daily");
   const [search, setSearch] = useState("");
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
@@ -217,13 +227,15 @@ const Attendance = () => {
   // Stats
   const statCounts = useMemo(() => {
     const todayRecords = attendance.filter(a => a.date === date);
+    const present = todayRecords.filter((a) => ["Present", "Late", "ACTIVE", "COMPLETED", "ON_BREAK"].includes(a.status)).length;
+    const leave = todayRecords.filter((a) => a.status === "ON_LEAVE").length;
     return {
-      present: todayRecords.filter((a) => ["Present", "Late", "ACTIVE", "COMPLETED", "ON_BREAK"].includes(a.status)).length,
-      absent: todayRecords.filter((a) => a.status === "Absent").length,
-      leave: todayRecords.filter((a) => a.status === "ON_LEAVE").length,
+      present,
+      absent: Math.max(0, employees.length - present - leave),
+      leave,
       late: todayRecords.filter((a) => a.status === "Late").length,
     };
-  }, [attendance, date]);
+  }, [attendance, date, employees.length]);
 
   const handleApprove = async (id) => {
     try {
@@ -231,11 +243,7 @@ const Attendance = () => {
          method: "PUT", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${user.token}` },
          body: JSON.stringify({ status: "Approved" })
       });
-      setLeaveRequests((prev) => prev.map((r) => (r.id === id || r._id === id) ? { ...r, status: "Approved" } : r));
-      // Trigger a soft refresh of attendance to show new leave records
-      const attRes = await fetch(`${API_URL}/attendance`, { headers: { "Authorization": `Bearer ${user.token}` } });
-      const attData = await attRes.json();
-      if (attRes.ok) setAttendance(attData);
+      if (refreshGlobal) await refreshGlobal();
     } catch(err) { console.error(err); }
   };
 
@@ -245,9 +253,7 @@ const Attendance = () => {
          method: "PUT", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${user.token}` },
          body: JSON.stringify({ status: "Rejected" })
       });
-      setLeaveRequests((prev) => prev.map((r) => (r.id === id || r._id === id) ? { ...r, status: "Rejected" } : r));
-      // Remove virtual records from local state
-      setAttendance(prev => prev.filter(a => !a._id.includes(`leave_${id}`)));
+      if (refreshGlobal) await refreshGlobal();
     } catch (err){ console.error(err); }
   };
 
@@ -275,26 +281,31 @@ const Attendance = () => {
            body: JSON.stringify(editingLeave)
         });
         if (res.ok) {
-           const updated = await res.json();
-           setLeaveRequests(prev => prev.map(r => (r.id === updated._id || r._id === updated._id) ? { ...r, ...updated, id: updated._id } : r));
-           
-           if (updated.status === 'Rejected') {
-              setAttendance(prev => prev.filter(a => !a._id.includes(`leave_${id}`)));
-           } else {
-              // Re-fetch to sync new dates/approve status
-              const attRes = await fetch(`${API_URL}/attendance`, { headers: { "Authorization": `Bearer ${user.token}` } });
-              const attData = await attRes.json();
-              if (attRes.ok) setAttendance(attData);
-           }
+           if (refreshGlobal) await refreshGlobal();
            setEditingLeave(null);
            setErrors({});
         }
      } catch (err) { console.error(err); }
   };
 
-  const activeData = activeTab === "daily" 
-    ? attendance.filter((a) => a.date === date && employees.find((e) => e.id === a.empId)?.name.toLowerCase().includes(search.toLowerCase()))
-    : leaveRequests.filter((r) => employees.find((e) => e.id === r.empId)?.name.toLowerCase().includes(search.toLowerCase()));
+  const activeData = useMemo(() => {
+    const s = search.toLowerCase();
+    const resolveEmpId = (id) => (id && typeof id === 'object') ? (id._id || id.id) : id;
+
+    if (activeTab === "daily") {
+       return attendance.filter((a) => {
+          const isToday = a.date === date;
+          const emp = employees.find((e) => String(e.id) === String(resolveEmpId(a.empId)));
+          const nameMatches = emp?.name.toLowerCase().includes(s) || (a.empId?.firstName ? `${a.empId.firstName} ${a.empId.lastName}`.toLowerCase().includes(s) : false);
+          return isToday && nameMatches;
+       });
+    } else {
+       return leaveRequests.filter((r) => {
+          const emp = employees.find((e) => String(e.id) === String(resolveEmpId(r.empId)));
+          return emp?.name.toLowerCase().includes(s);
+       });
+    }
+  }, [attendance, leaveRequests, activeTab, date, search, employees]);
 
   return (
     <AdminLayout title="Attendance & Workforce">

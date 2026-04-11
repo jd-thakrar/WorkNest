@@ -105,11 +105,12 @@ const StatusBadge = ({ status }) => {
   );
 };
 
-const AvatarStack = ({ memberIds, allTeams, max = 3 }) => {
-  const allMembers = allTeams.flatMap((t) => t.members);
-  const resolved = memberIds.map((id) => allMembers.find((m) => m.id === id)).filter(Boolean);
+const AvatarStack = ({ memberIds = [], allTeams = [], max = 3 }) => {
+  const allMembers = allTeams.flatMap((t) => t.members || []);
+  const resolved = (memberIds || []).map((id) => allMembers.find((m) => m.id === id)).filter(Boolean);
   const visible = resolved.slice(0, max);
   const extra = resolved.length - max;
+
   return (
     <div className="flex items-center -space-x-2">
       {visible.map((m) => (
@@ -124,8 +125,9 @@ const AvatarStack = ({ memberIds, allTeams, max = 3 }) => {
 
 const TaskDetailPanel = ({ task, allTeams, onClose, onEdit, onDelete }) => {
   if (!task) return null;
-  const allMembers = allTeams.flatMap((t) => t.members);
-  const resolved = task.members.map((id) => allMembers.find((m) => m.id === id)).filter(Boolean);
+  const allMembers = (allTeams || []).flatMap((t) => t.members || []);
+  const resolved = (task.members || []).map((id) => allMembers.find((m) => m.id === id)).filter(Boolean);
+
 
   return (
     <div className="fixed top-16 inset-x-0 bottom-0 z-50 flex" onClick={onClose}>

@@ -48,57 +48,153 @@ export const getEmployeeDashboard = async (req, res) => {
     const payrollSnapshot = {
       lastAmount: recentPayroll ? `₹${recentPayroll.net.toLocaleString('en-IN')}` : '₹0',
       lastDate: recentPayroll ? new Date(recentPayroll.updatedAt).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' }) : 'N/A',
-      loanEMI: '₹0' // Placeholder for now
+      loanEMI: '₹0',
+      record: recentPayroll // Send the whole record for detail rendering
     };
 
-    // 4. Fetch Leave Requests
+    // 4. Leave Statistics
+    const allApprovedLeaves = await LeaveRequest.find({ empId: employee._id, status: 'Approved' });
+    const usedDays = allApprovedLeaves.reduce((sum, l) => sum + (l.days || 0), 0);
+    const totalEntitlement = 24; 
+
     const requests = await LeaveRequest.find({ empId: employee._id })
       .sort({ createdAt: -1 })
       .limit(3);
 
     const leaveStats = {
-      remaining: 12, 
-      total: 24,
+      remaining: Math.max(0, totalEntitlement - usedDays), 
+      total: totalEntitlement,
       upcoming: { range: 'No Upcoming', reason: '--' },
       nextHoliday: 'Holi (Mar 25)' 
     };
 
-    // 5. Attendance Summary
+    // 5. Attendance Summary & Weekly Pulse
     const today = new Date().toISOString().split('T')[0];
     const record = await Attendance.findOne({ empId: employee._id, date: today });
 
     const history = await Attendance.find({ 
        empId: employee._id 
-    }).sort({ date: -1 });
+    }).sort({ date: -1 }).limit(30);
+
+    // Calculate Average Login
+    const validCheckIns = history.filter(h => h.checkIn).map(h => {
+        const parts = h.checkIn.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+        if (!parts) return null;
+        let hrs = parseInt(parts[1]);
+        const mins = parseInt(parts[2]);
+        const mod = parts[3].toUpperCase();
+        if (mod === 'PM' && hrs !== 12) hrs += 12;
+        if (mod === 'AM' && hrs === 12) hrs = 0;
+        return hrs * 60 + mins;
+    }).filter(t => t !== null);
+
+    let avgLoginStr = '09:00 AM';
+    if (validCheckIns.length > 0) {
+       const avgMins = Math.floor(validCheckIns.reduce((a, b) => a + b, 0) / validCheckIns.length);
+       let h = Math.floor(avgMins / 60);
+       const m = avgMins % 60;
+       const mod = h >= 12 ? 'PM' : 'AM';
+       if (h > 12) h -= 12;
+       if (h === 0) h = 12;
+       avgLoginStr = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')} ${mod}`;
+    }
+
+    let computedTimer = '00:00:00';
+    if (record) {
+      // ... (existing timer logic remains same) ...
+
+      if (record.status === 'COMPLETED') {
+         if (record.totalWorkingHours) {
+           const match = record.totalWorkingHours.match(/(\d+)h\s*(\d+)m/);
+           if (match) {
+             computedTimer = `${String(match[1]).padStart(2, '0')}:${String(match[2]).padStart(2, '0')}:00`;
+           } else {
+             computedTimer = record.totalWorkingHours;
+           }
+         }
+      } else if (record.status === 'ACTIVE' || record.status === 'Late' || record.status === 'ON_BREAK' || record.status === 'Present') {
+         const start = new Date(`2000-01-01 ${record.checkIn}`);
+         
+         const d = new Date();
+         let hh = d.getHours();
+         const mm = d.getMinutes();
+         const ss = d.getSeconds();
+         const ampm = hh >= 12 ? 'PM' : 'AM';
+         if (hh > 12) hh -= 12;
+         if (hh === 0) hh = 12;
+         const nowStr = `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')} ${ampm}`;
+         
+         const now = new Date(`2000-01-01 ${nowStr}`);
+
+         let breakMs = (record.totalBreakTime || 0) * 60000;
+         
+         if (record.status === 'ON_BREAK' && record.breaks && record.breaks.length > 0) {
+            const lastBreak = record.breaks[record.breaks.length - 1];
+            if (!lastBreak.end) {
+               const breakStart = new Date(`2000-01-01 ${lastBreak.start}`);
+               breakMs += (now - breakStart);
+            }
+         }
+
+         let elapsedMs = now - start - breakMs;
+         if (elapsedMs < 0) elapsedMs = 0;
+         
+         const hrs = Math.floor(elapsedMs / 3600000);
+         const mins = Math.floor((elapsedMs % 3600000) / 60000);
+         const secs = Math.floor((elapsedMs % 60000) / 1000);
+         
+         computedTimer = `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+      }
+    }
 
     const lateDaysCount = history.filter(h => {
        if (!h.checkIn) return false;
-       const [time, modifier] = h.checkIn.split(' ');
-       let [hrs, mins] = time.split(':').map(Number);
-       if (modifier === 'PM' && hrs !== 12) hrs += 12;
-       if (modifier === 'AM' && hrs === 12) hrs = 0;
-       return (hrs > 9) || (hrs === 9 && mins > 15);
+       const parts = h.checkIn.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+       if (!parts) return false;
+       let hrs = parseInt(parts[1]);
+       const mins = parseInt(parts[2]);
+       const mod = parts[3].toUpperCase();
+       if (mod === 'PM' && hrs !== 12) hrs += 12;
+       if (mod === 'AM' && hrs === 12) hrs = 0;
+       return (hrs > 9) || (hrs === 9 && mins > 30);
     }).length;
 
     const attendanceSummary = {
-      status: (record?.status === 'ACTIVE' || record?.status === 'Late' || record?.status === 'Present') 
-        ? 'Clocked In' 
-        : (record?.status === 'ON_BREAK' ? 'On Break' : (record?.status === 'COMPLETED' ? 'Session Secured' : 'Ready')), 
+      status: record?.status || 'Ready',
       mode: 'Office',
       lastPunch: record?.checkIn || 'Not Punched',
-      timer: '00:00:00',
+      timer: computedTimer,
+      avgLogin: avgLoginStr, // ADDED
       notes: record?.notes || '',
       weeklyStatus: await Promise.all([6,5,4,3,2,1,0].map(async daysAgo => {
          const d = new Date(); d.setDate(d.getDate() - daysAgo);
          const dayIso = d.toISOString().split('T')[0];
          const dayAtt = history.find(a => a.date === dayIso);
-         
-         if (dayAtt) {
+                  if (dayAtt) {
+            let s = 'present';
+            if (dayAtt.status === 'Late') s = 'late';
+            else if (dayAtt.status === 'ON_LEAVE') s = 'leave';
+            else if (dayAtt.status === 'COMPLETED' || dayAtt.status === 'ACTIVE' || dayAtt.status === 'Present') {
+               // Check if it was actually late even if marked completed
+               if (dayAtt.checkIn) {
+                  const parts = dayAtt.checkIn.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+                  if (parts) {
+                     let hrs = parseInt(parts[1]);
+                     const mins = parseInt(parts[2]);
+                     const mod = parts[3].toUpperCase();
+                     if (mod === 'PM' && hrs !== 12) hrs += 12;
+                     if (mod === 'AM' && hrs === 12) hrs = 0;
+                     if ((hrs > 9) || (hrs === 9 && mins > 30)) s = 'late';
+                  }
+               }
+            }
+            
             return {
                day: d.toLocaleDateString('en-US', { weekday: 'narrow' }),
-               status: (dayAtt.status === 'COMPLETED' || dayAtt.status === 'ACTIVE' || dayAtt.status === 'Late') ? 'present' : (dayAtt.status === 'ON_LEAVE' ? 'leave' : 'absent')
+               status: s
             };
-         }
+          }
+
          
          // No attendance record, check for approved leaves
          const hasLeave = await LeaveRequest.findOne({
@@ -121,7 +217,7 @@ export const getEmployeeDashboard = async (req, res) => {
         lastName: employee.lastName,
         role: employee.designation,
         employeeId: employee.employeeId,
-        avatar: req.user.avatar || '',
+        avatar: employee.avatar || `https://ui-avatars.com/api/?name=${employee.firstName}+${employee.lastName}&background=random`, // Use robust fallback
         joiningDate: employee.joiningDate,
         id: employee._id
       },
@@ -139,6 +235,7 @@ export const getEmployeeDashboard = async (req, res) => {
       },
       payroll: payrollSnapshot
     });
+
 
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -246,10 +343,10 @@ export const punchAttendance = async (req, res) => {
       // Determine if Late (Office start: 09:00 AM, Grace: 15m)
       const [time, modifier] = currentTime.split(' ');
       let [hrs, mins] = time.split(':').map(Number);
-      if (modifier === 'PM' && hrs !== 12) hrs += 12;
-      if (modifier === 'AM' && hrs === 12) hrs = 0;
+      if (modifier && modifier.toUpperCase() === 'PM' && hrs !== 12) hrs += 12;
+      if (modifier && modifier.toUpperCase() === 'AM' && hrs === 12) hrs = 0;
       
-      const isLate = (hrs > 9) || (hrs === 9 && mins > 15);
+      const isLate = (hrs > 9) || (hrs === 9 && mins > 30);
 
       record = await Attendance.create({
         empId: employee._id,

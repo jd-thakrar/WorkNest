@@ -56,12 +56,7 @@ const Topbar = ({ collapsed, setCollapsed }) => {
           </div>
         </Link>
 
-        <Link
-          to="/login"
-          className="hidden sm:flex p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all"
-        >
-          <LogOut size={18} />
-        </Link>
+
 
         {/* Mobile Toggle */}
         <button

@@ -6,7 +6,16 @@ const StatusChips = ({ history }) => {
   const todayRecord = history?.find(r => r.date === todayDate);
   const presentRecs = history?.filter(r => r.status === 'Present' || r.status === 'ACTIVE' || r.status === 'COMPLETED' || r.status === 'ON_BREAK' || r.status === 'Late');
   const presentDays = presentRecs?.length || 0;
-  const lateDays = history?.filter(r => r.status === 'Late').length || 0;
+  const lateDays = history?.filter(r => {
+    if (r.status === 'Late') return true;
+    if (!r.checkIn || r.checkIn === '--:--') return false;
+    const [time, modifier] = r.checkIn.split(' ');
+    if (!time || !modifier) return false;
+    let [hrs, mins] = time.split(':').map(Number);
+    if (modifier.toUpperCase() === 'PM' && hrs !== 12) hrs += 12;
+    if (modifier.toUpperCase() === 'AM' && hrs === 12) hrs = 0;
+    return (hrs > 9) || (hrs === 9 && mins > 30);
+  }).length || 0;
   const totalDays = history?.length || 0;
 
   const stats = [

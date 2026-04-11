@@ -109,6 +109,15 @@ const Dashboard = () => {
           <HeroAttendanceCard data={data.attendance} employee={data.employee} />
         </motion.div>
 
+        {/* Quick Actions — Moved Up */}
+        <motion.div variants={itemVariants} className="pt-2">
+          <div className="mb-4 px-1 flex items-center justify-between">
+            <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.25em]">Self Service Portal</h3>
+            <div className="h-px flex-1 bg-slate-100 mx-6" />
+          </div>
+          <QuickActionsStrip />
+        </motion.div>
+
         {/* Main Content Grid — Asymmetrical */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
           
@@ -119,7 +128,7 @@ const Dashboard = () => {
             </motion.div>
             
             <motion.div variants={itemVariants}>
-              <AttendanceTimeline status={data.attendance.weeklyStatus} />
+              <AttendanceTimeline attendance={data.attendance} />
             </motion.div>
           </div>
 
@@ -138,17 +147,9 @@ const Dashboard = () => {
             </motion.div>
           </div>
         </div>
-
-        {/* Quick Actions Footer */}
-        <motion.div variants={itemVariants} className="pt-4">
-          <div className="mb-4 px-1 flex items-center justify-between">
-            <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.25em]">Self Service Portal</h3>
-            <div className="h-px flex-1 bg-slate-100 mx-6" />
-          </div>
-          <QuickActionsStrip />
-        </motion.div>
       </motion.div>
     </EmployeeLayout>
+
   );
 };
 

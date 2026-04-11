@@ -23,7 +23,24 @@ const MonthlyAttendance = ({ history }) => {
     
     let status = 'Upcoming';
     if (dayOfWeek === 0) status = 'Weekend'; // Sunday Only
-    else if (record) status = (record.status === 'COMPLETED' || record.status === 'ACTIVE' || record.status === 'ON_BREAK') ? 'Present' : (record.status === 'ON_LEAVE' ? 'Leave' : record.status);
+    else if (record) {
+      const isLateStatus = record.status === 'Late';
+      let wasActuallyLate = false;
+      if (record.checkIn && record.checkIn !== '--:--') {
+        const [time, modifier] = record.checkIn.split(' ');
+        if (time && modifier) {
+          let [hrs, mins] = time.split(':').map(Number);
+          if (modifier.toUpperCase() === 'PM' && hrs !== 12) hrs += 12;
+          if (modifier.toUpperCase() === 'AM' && hrs === 12) hrs = 0;
+          if ((hrs > 9) || (hrs === 9 && mins > 30)) wasActuallyLate = true;
+        }
+      }
+
+      if (isLateStatus || wasActuallyLate) status = 'Late';
+      else if (record.status === 'ON_LEAVE') status = 'Leave';
+      else if (['ACTIVE', 'COMPLETED', 'ON_BREAK', 'Present'].includes(record.status)) status = 'Present';
+      else status = record.status;
+    }
     else if (new Date(currentYear, currentMonth, dayNum) < new Date().setHours(0,0,0,0)) status = 'Absent';
 
     return { day: dayNum, status };

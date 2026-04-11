@@ -6,27 +6,24 @@ import { useGlobal } from "../../../context/GlobalContext";
 
 const PayrollSnapshotCard = ({ payroll }) => {
   const { user } = useAuth();
-  const { financials } = useGlobal();
 
   const prevD = new Date();
   prevD.setMonth(prevD.getMonth() - 1);
   const fallbackMonth = prevD.toLocaleString('en-US', { month: 'long', year: 'numeric' });
 
-  // Get historical paid ones securely
-  const userFinancials = financials.filter(f => f.id === user.id && f.status === 'Paid');
-  const latestF = userFinancials.length > 0 ? userFinancials[userFinancials.length - 1] : null;
+  const latestF = payroll.record;
 
-  let dummyPayslipData = {
-    month: fallbackMonth,
-    amount: "0",
+  let payslipData = {
+    month: payroll.lastDate || fallbackMonth,
+    amount: payroll.lastAmount?.replace('₹', '') || "0",
     date: "Processing",
     status: "Calculated",
     details: {}
   };
 
   if (latestF) {
-     dummyPayslipData = {
-        employeeName: user.name,
+     payslipData = {
+        employeeName: `${user.firstName || ''} ${user.lastName || ''}`,
         designation: user.role,
         month: latestF.month,
         amount: latestF.net?.toLocaleString('en-IN') || "0",
@@ -66,23 +63,24 @@ const PayrollSnapshotCard = ({ payroll }) => {
       <div className="space-y-4">
         <div>
            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Last Amount</p>
-           <h2 className="text-xl font-bold text-[#042f2e] tracking-tight">₹{dummyPayslipData.amount}</h2>
-           <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">on {dummyPayslipData.month}</p>
+           <h2 className="text-xl font-bold text-[#042f2e] tracking-tight">₹{payslipData.amount}</h2>
+           <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">on {payslipData.month}</p>
         </div>
-
+ 
         <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
            <div>
               <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">EMI</p>
               <p className="text-[11px] font-bold text-slate-700">{payroll.loanEMI}</p>
            </div>
            <button 
-              onClick={() => generatePayslipPDF(dummyPayslipData)}
+              onClick={() => generatePayslipPDF(payslipData)}
               className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white border border-slate-100 rounded-lg text-[8px] font-bold uppercase tracking-widest text-slate-600 hover:bg-slate-50 transition-all shadow-sm"
            >
               <Download size={10} /> Slip
            </button>
         </div>
       </div>
+
     </div>
   );
 };

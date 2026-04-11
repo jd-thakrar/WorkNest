@@ -11,13 +11,15 @@ import {
   Wallet,
   Bell,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  LogOut
 } from 'lucide-react';
 
 import { useAuth } from '../../context/AuthContext';
 
 const Sidebar = ({ collapsed, setCollapsed }) => {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
+
   const location = useLocation();
 
   const menuItems = [
@@ -110,26 +112,37 @@ const Sidebar = ({ collapsed, setCollapsed }) => {
         </button>
 
         {/* Profile Footer */}
-        <div className="mt-4 pt-4 border-t border-slate-50 px-2 flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-[#042f2e]/5 shrink-0 flex items-center justify-center overflow-hidden border border-slate-100 shadow-sm">
-            <img
-              src={user?.avatar || `https://ui-avatars.com/api/?name=${(user?.name || 'User').replace(' ', '+')}&background=042f2e&color=fff&bold=true`}
-              alt={user?.name}
-              className="w-full h-full object-cover"
-            />
-          </div>
-          {!collapsed && (
-            <div className="min-w-0">
-              <div className="text-[11px] font-black text-[#042f2e] truncate">
-                {user?.name || 'Personnel'}
-              </div>
-              <div className="text-[8px] text-slate-400 font-bold uppercase tracking-widest truncate">
-                {user?.company || 'Organization'}
-              </div>
+        <div className="mt-4 pt-4 border-t border-slate-50 px-2 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 overflow-hidden">
+            <div className="w-8 h-8 rounded-lg bg-[#042f2e]/5 shrink-0 flex items-center justify-center overflow-hidden border border-slate-100 shadow-sm">
+              <img
+                src={user?.avatar || `https://ui-avatars.com/api/?name=${(user?.name || 'User').replace(' ', '+')}&background=042f2e&color=fff&bold=true`}
+                alt={user?.name}
+                className="w-full h-full object-cover"
+              />
             </div>
-          )}
+            {!collapsed && (
+              <div className="min-w-0">
+                <div className="text-[11px] font-black text-[#042f2e] truncate">
+                  {user?.name || 'Personnel'}
+                </div>
+                <div className="text-[8px] text-slate-400 font-bold uppercase tracking-widest truncate">
+                  {user?.company || 'Organization'}
+                </div>
+              </div>
+            )}
+          </div>
+          
+          <button 
+             onClick={logout}
+             title="Logout"
+             className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all"
+          >
+             <LogOut size={16} />
+          </button>
         </div>
       </div>
+
     </aside>
   );
 };

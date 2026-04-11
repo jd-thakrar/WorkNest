@@ -120,7 +120,11 @@ const PayrollDrawer = ({ data, onClose }) => {
     <motion.div initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} transition={{ type: 'spring', damping: 25, stiffness: 200 }} className="fixed top-16 bottom-0 right-0 w-full max-w-md bg-white shadow-2xl z-50 flex flex-col border-l border-gray-100 print:top-0 print:left-0 print:right-auto print:max-w-none print:w-auto print:h-auto print:shadow-none print:border-none print:z-[9999] print:bg-white print:p-8">
       <div className="p-8 border-b border-gray-50 flex items-center justify-between print:border-b-2 print:pb-4 print:mb-8 print:p-0">
         <div className="flex items-center gap-4">
-          <img src={data.emp.avatar} className="w-12 h-12 rounded-2xl border border-gray-200 shadow-sm print:hidden" alt="" />
+          <img 
+            src={data.emp.avatar || `https://ui-avatars.com/api/?name=${(data.emp.name || 'User').replace(' ', '+')}&background=random`} 
+            className="w-12 h-12 rounded-2xl border border-gray-200 shadow-sm print:hidden" 
+            alt={data.emp.name} 
+          />
           <div>
             <h3 className="text-lg font-black text-[#042f2e]">{data.emp.name}</h3>
             <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{data.emp.role} • {f.month || "Current Month"}</p>
@@ -296,7 +300,11 @@ const ClaimsDrawer = ({ onClose }) => {
           <div key={c._id} className="bg-white p-5 rounded-[24px] border border-gray-100 shadow-sm hover:border-teal-500/30 transition-all">
              <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-3">
-                   <img src={c.empId.avatar} alt="Avatar" className="w-9 h-9 rounded-xl shadow-sm border border-gray-100" />
+                   <img 
+                     src={c.empId.avatar || `https://ui-avatars.com/api/?name=${c.empId.firstName || 'P'}+${c.empId.lastName || ''}&background=random`} 
+                     alt="Avatar" 
+                     className="w-9 h-9 rounded-xl shadow-sm border border-gray-100" 
+                   />
                    <div>
                       <p className="text-xs font-bold text-[#042f2e]">{c.empId.firstName} {c.empId.lastName}</p>
                       <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest leading-none">{c.empId.dept}</p>
@@ -586,7 +594,11 @@ const Payroll = () => {
                           <td className="px-8 py-5 sticky left-0 bg-white group-hover:bg-teal-50 z-10 transition-colors shadow-[2px_0_4px_rgba(0,0,0,0.05)]">
                             <div className="flex items-center gap-4">
                                <div className="w-10 h-10 rounded-xl bg-gray-100 overflow-hidden shrink-0 border border-gray-200">
-                                  <img src={row.emp.avatar} alt="" className="w-full h-full object-cover" />
+                                  <img 
+                                    src={row.emp.avatar || `https://ui-avatars.com/api/?name=${(row.emp.name || 'User').replace(' ', '+')}&background=random`} 
+                                    alt="" 
+                                    className="w-full h-full object-cover" 
+                                  />
                                </div>
                                <div>
                                   <div className="text-sm font-bold text-[#042f2e]">{row.emp.name}</div>
