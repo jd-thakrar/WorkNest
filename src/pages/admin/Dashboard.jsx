@@ -381,10 +381,15 @@ const Dashboard = () => {
                     </span>
                   ))}
                 </div>
+                </div>
               </div>
             </div>
           </div>
-        </ChartContainer>
+        </div>
+      </ChartContainer>
+
+
+
 
 
           {/* Section 3: Workload Balance (TOTAL TASK STATUS DATA) */}
