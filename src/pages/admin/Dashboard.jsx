@@ -66,19 +66,26 @@ const Dashboard = () => {
       }
 
      const currentMonthStr = new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-     const totalNet = financials.filter(f => f.month === currentMonthStr).reduce((acc, f) => acc + (f.net || 0), 0);
-     const disbursedNet = financials.filter(f => f.month === currentMonthStr).reduce((acc, f) => acc + (f.status === 'Paid' ? (f.net || 0) : 0), 0);
-     const pendingNet = financials.filter(f => f.month === currentMonthStr).reduce((acc, f) => acc + (f.status !== 'Paid' ? (f.net || 0) : 0), 0);
      
+     // Calculate projected total from all Active employees
+     const projectedTotalNet = employees.reduce((acc, emp) => acc + (Math.round((emp.ctc || 0) / 12)), 0);
+     
+     const disbursedNet = financials.filter(f => f.month === currentMonthStr && f.status === 'Paid').reduce((acc, f) => acc + (f.net || 0), 0);
+     const processedPendingNet = financials.filter(f => f.month === currentMonthStr && f.status !== 'Paid').reduce((acc, f) => acc + (f.net || 0), 0);
+     
+     // The remainder is "Draft" or "Not yet processed"
+     const totalNet = Math.max(projectedTotalNet, disbursedNet + processedPendingNet);
+     const draftNet = Math.max(0, totalNet - disbursedNet - processedPendingNet);
+
      const payroll = {
         total: `₹${totalNet.toLocaleString()}`,
         disbursed: `₹${disbursedNet.toLocaleString()}`,
-        pending: `₹${pendingNet.toLocaleString()}`,
-        draft: "₹0",
+        pending: `₹${processedPendingNet.toLocaleString()}`,
+        draft: `₹${draftNet.toLocaleString()}`,
         percents: { 
            disbursed: totalNet > 0 ? (disbursedNet / totalNet) * 100 : 0, 
-           pending: totalNet > 0 ? (pendingNet / totalNet) * 100 : 0, 
-           draft: 0 
+           pending: totalNet > 0 ? (processedPendingNet / totalNet) * 100 : 0, 
+           draft: totalNet > 0 ? (draftNet / totalNet) * 100 : 0 
         }
      };
 
@@ -234,23 +241,23 @@ const Dashboard = () => {
             subtitle="Hover or Click date/dots for precision telemetry"
             className="lg:col-span-8"
           >
-            <div className="overflow-x-auto overflow-y-hidden no-scrollbar pt-6">
-               <div className="h-[320px] min-w-[600px] w-full relative">
-
-              {/* Y Axis Highlight Layer */}
-              <div className="absolute inset-y-0 left-0 flex flex-col justify-between py-4 text-[9px] font-bold text-gray-300 pointer-events-none tracking-widest leading-none z-10 w-full">
+            <div className="relative pt-6">
+              {/* Fixed Y Axis Highlight Layer (Outside Scroll) */}
+              <div className="absolute inset-y-0 left-8 right-8 flex flex-col justify-between py-10 text-[9px] font-bold text-gray-300 pointer-events-none tracking-widest leading-none z-10">
                 {[10, 8, 6, 4, 2, 0].map((v) => (
-                  <div key={v} className="flex items-center gap-2 group/y">
+                  <div key={v} className="flex items-center gap-2">
                     <span className="w-6">{v}</span>
                     <div className="flex-1 h-px bg-gray-100 opacity-20" />
                   </div>
                 ))}
               </div>
 
-              <div className="ml-8 h-full relative">
-                {/* SVG Line Chart with Accurate Coordinates */}
-                <svg
-                  className="w-full h-full overflow-visible"
+              <div className="overflow-x-auto overflow-y-hidden no-scrollbar">
+                <div className="h-[320px] min-w-[600px] w-full relative">
+                  <div className="ml-8 h-full relative">
+                    {/* SVG Line Chart with Accurate Coordinates */}
+                    <svg
+                      className="w-full h-full overflow-visible"
                   preserveAspectRatio="none"
                   viewBox="0 0 1000 300"
                 >
@@ -491,8 +498,9 @@ const Dashboard = () => {
           title="Attendance Pulse"
           subtitle="Labor Presence for 10 Personnel (Daily Flow)"
         >
-          <div className="overflow-x-auto overflow-y-hidden no-scrollbar pt-10">
-            <div className="h-[300px] min-w-[600px] flex items-end justify-between px-4 pb-10 gap-2 md:gap-4">
+          <div className="overflow-x-auto overflow-y-hidden no-scrollbar pt-12 pb-2">
+            <div className="h-[320px] min-w-[600px] flex items-end justify-between px-4 pb-12 gap-2 md:gap-4">
+
               {DASHBOARD_DATA.attendance.map((row, i) => (
                 <div
                   key={i}
