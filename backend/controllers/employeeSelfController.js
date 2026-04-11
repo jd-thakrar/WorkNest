@@ -620,7 +620,8 @@ export const applyReimbursement = async (req, res) => {
       type: type || 'Reimbursement',
       amount: Number(amount),
       description: description || 'Expense Claim',
-      receipt: req.file.filename, // Store the filename
+      receipt: req.file.path, // Store Cloudinary URL
+
       company: employee.company,
       status: 'Pending'
     });
