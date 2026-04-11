@@ -25,7 +25,8 @@ import { useGlobal } from "../../context/GlobalContext.jsx";
 // Dynamic Dashboard Data logic calculated directly inside the component
 
 const Dashboard = () => {
-  const { employees, tasks, attendance, financials, payrollStatus } = useGlobal();
+  const { employees, tasks, attendance, financials, payrollStatus, loading } = useGlobal();
+
   const navigate = useNavigate();
   const [activePoint, setActivePoint] = useState(null);
 
@@ -182,8 +183,15 @@ const Dashboard = () => {
   ];
 
   return (
-    <AdminLayout title="Operational Intel">
-      <div className="space-y-8 animate-in pb-20">
+    <AdminLayout title="Enterprise Intelligence">
+      {loading && (
+        <div className="fixed inset-0 bg-white/60 backdrop-blur-sm z-[9999] flex flex-col items-center justify-center">
+          <div className="w-16 h-16 border-4 border-teal-500/20 border-t-teal-600 rounded-full animate-spin mb-4" />
+          <p className="text-[10px] font-bold text-[#042f2e] uppercase tracking-[0.3em] animate-pulse">Synchronizing Core Engine...</p>
+        </div>
+      )}
+
+      <div className="space-y-10 pb-12">
         {/* Row 0: Quick Action Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-2">
           <div className="max-w-md">
@@ -252,7 +260,7 @@ const Dashboard = () => {
             subtitle="Hover or Click date/dots for precision telemetry"
             className="lg:col-span-8"
           >
-            <div className="h-[320px] w-full relative pt-6 pb-2">
+            <div className="h-[280px] w-full relative pt-6 pb-2">
               {/* Axis Layer */}
               <div className="absolute inset-y-0 left-0 right-0 flex flex-col justify-between pt-10 pb-12 text-[9px] font-bold text-gray-300 pointer-events-none tracking-widest leading-none pr-4">
                 {[10, 8, 6, 4, 2, 0].map((v) => (
@@ -264,6 +272,7 @@ const Dashboard = () => {
               </div>
 
               <div className="ml-10 h-full relative pt-10 pb-12">
+
                 {/* SVG Line Chart */}
                 <svg
                   className="w-full h-full overflow-visible"

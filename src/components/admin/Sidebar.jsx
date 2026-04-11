@@ -18,7 +18,8 @@ import {
 import { useAuth } from "../../context/AuthContext";
 
 const Sidebar = ({ collapsed, setCollapsed }) => {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
+
   const location = useLocation();
 
   const menuItems = [
@@ -150,15 +151,15 @@ const Sidebar = ({ collapsed, setCollapsed }) => {
               </div>
             </div>
           )}
-          {!collapsed && (
-            <Link
-              to="/login"
-              className="ml-auto p-1.5 text-gray-400 hover:text-red-500 transition-colors"
-            >
-              <LogOut size={16} />
-            </Link>
-          )}
+          <button
+            onClick={logout}
+            title="Logout"
+            className={`${collapsed ? 'w-full' : 'ml-auto'} p-1.5 text-gray-400 hover:text-red-500 transition-colors flex items-center justify-center`}
+          >
+            <LogOut size={16} />
+          </button>
         </div>
+
       </div>
     </aside>
   );

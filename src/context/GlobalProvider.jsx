@@ -22,6 +22,7 @@ export const GlobalProvider = ({ children }) => {
       }),
     };
   });
+  const [loading, setLoading] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(
     window.innerWidth < 1024,
   );
@@ -29,7 +30,9 @@ export const GlobalProvider = ({ children }) => {
   // Synchronize ALL backend data seamlessly to remove dummy data permanently
   const syncGlobalData = async () => {
     if (!user) return;
+    setLoading(true);
     try {
+
       const headers = { Authorization: `Bearer ${user.token}` };
 
       // If employee, limit initial fetches to avoid 401s
@@ -90,8 +93,11 @@ export const GlobalProvider = ({ children }) => {
       }
     } catch (err) {
       console.error("Global Sync Error:", err);
+    } finally {
+      setLoading(false);
     }
   };
+
 
   // Helper formatters to keep code clean
   const formatEmployees = (raw) =>
@@ -242,7 +248,9 @@ export const GlobalProvider = ({ children }) => {
         sidebarCollapsed,
         setSidebarCollapsed,
         refreshGlobal: syncGlobalData,
+        loading,
       }}
+
     >
       {children}
     </GlobalContext.Provider>
