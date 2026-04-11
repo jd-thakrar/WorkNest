@@ -1,18 +1,88 @@
-# React + Vite
+# 🏛️ WorkNest: Next-Gen Enterprise Resource Planning & HRM
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+![WorkNest Dashboard](public/dashboard.png)
 
-Currently, two official plugins are available:
+### **The Intelligence Layer for Modern Organizations**
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+**WorkNest** is a high-fidelity, full-stack Human Resource Management System (HRMS) engineered for scalability, precision, and seamless organizational orchestration. It bridges the gap between administrative oversight and employee empowerment through a unified, data-driven ecosystem.
 
-## React Compiler
+---
 
-The React Compiler is enabled on this template. See [this documentation](https://react.dev/learn/react-compiler) for more information.
+## 💎 Enterprise-Grade Features
 
-Note: This will impact Vite dev & build performances.
+### 🏢 **Strategic Administration Command**
+*   **Operational Intelligence**: Advanced dashboard featuring productivity telemetry, attendance pulses, and real-time labor distribution analytics.
+*   **Automated Fiscal Engine**: Comprehensive payroll orchestration with localized tax logic (TDS, PF, HRA), automated disbursements, and historical audit logs.
+*   **Asset & Team Management**: Hierarchical organizational structuring with deep-linking for teams, employees, and freelance personnel.
+*   **Workflow Orchestration**: Kanban-inspired task engine with status transitions, priority weighting, and cross-team collaboration.
+*   **Digital compliance**: Automated PDF generation for legally-compliant offer letters, contracts, and dynamic payslips.
 
-## Expanding the ESLint configuration
+### 👥 **Unified Personnel Experience (UPE)**
+*   **Smart Attendance Logic**: Persistent session tracking with break-aware timers and server-synchronized geo-presence.
+*   **Financial self-service**: Instant access to digital payslips, historical earnings analysis, and an integrated reimbursement portal with OCR-ready receipt uploads.
+*   **Agile Leave Management**: Dynamic time-off requests with real-time balance tracking and tiered approval workflows.
+*   **Personalization Engine**: Employee-specific branding with dynamic avatars and individualized productivity scorecards.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+---
+
+## 🏗️ Architectural Overview
+
+WorkNest is built on a distributed **MERN Architecture** (MongoDB, Express, React, Node.js), optimized for high availability and low-latency interaction.
+
+-   **Frontend**: High-performance SPA built with **Vite** and **React 18**, utilizing **Framer Motion** for micro-interactions and **TailwindCSS** for a premium design system.
+-   **Backend**: **Node.js** RESTful API with **Express.js**, featuring JWT-secured stateless authentication and role-based access control (RBAC).
+-   **Storage Layer**: **MongoDB Atlas** for persistent document storage and **Cloudinary** for global CDN-delivered media assets.
+-   **Security**: Bcrypt-hashed passwords, environment-locked credentials, and CORS-hardened endpoints.
+
+---
+
+## 🛠️ Technical Stack & Dependencies
+
+```json
+{
+  "core": ["React 18", "Express.js", "MongoDB", "Node.js"],
+  "design": ["TailwindCSS", "Framer Motion", "Lucide Icons", "Google Fonts"],
+  "infrastructure": ["Vercel", "MongoDB Atlas", "Cloudinary"],
+  "security": ["JSON Web Tokens", "BCrypt", "RBAC Logic"]
+}
+```
+
+---
+
+## 🚀 Deployment & Live Instance
+
+| Environment | Status | URL |
+| :--- | :--- | :--- |
+| **Production** | 🟢 Live | [https://worknest-hrms.vercel.app/](https://worknest-hrms-jeet-thakrars-projects.vercel.app/) |
+| **Staging** | 🟡 Internal | [https://worknest-staging.vercel.app/](https://worknest-hrms-jeet-thakrars-projects.vercel.app/) |
+
+---
+
+## ⚙️ Enterprise Deployment Guide
+
+### **Self-Hosting Requirements**
+-   **Backend**: Node.js engine v18+
+-   **Cloud Database**: MongoDB Cluster setup (Atlas recommended)
+-   **CDN**: Cloudinary API access for asset persistence
+
+### **Environment Variable Configuration**
+Set up the following keys in your `.env` for production parity:
+```bash
+# Server Configuration
+PORT=5000
+MONGODB_URI=your_db_connection_string
+JWT_SECRET=your_secure_hash_key
+
+# Cloudinary Integration
+CLOUDINARY_NAME=your_cloud_name
+CLOUDINARY_API_KEY=your_api_key
+CLOUDINARY_API_SECRET=your_api_secret
+```
+
+---
+
+## 🤝 Stakeholders & Contributors
+Developed and maintained by **Jeet Thakrar**. We welcome enterprise collaboration and open-source contributions. 
+
+---
+*Generated by WorkNest Enterprise Systems 2024*
