@@ -105,6 +105,12 @@ export const GlobalProvider = ({ children }) => {
       status: "Active",
       type: e.type,
       joiningDate: e.joiningDate || e.createdAt,
+      ctc: Number(e.ctc || 0),
+      basic: Number(e.basic || 0),
+      hra: Number(e.hra || 0),
+      travel: Number(e.travel || 0),
+      daily: Number(e.daily || 0),
+      otherAllowances: e.otherAllowances || [],
       baseSalary: Number(e.salary || e.basicSalary || e.basic || e.rate || 0),
       hraAmount: Number(e.hra || 0),
       totalAllowances:
@@ -119,10 +125,12 @@ export const GlobalProvider = ({ children }) => {
       pfEmployee: Number(e.pfEmployee || 0),
       profTax: Boolean(e.profTax),
       tds: Boolean(e.tds),
+      otherDeductions: e.otherDeductions || [],
       totalOtherDeduct: Array.isArray(e.otherDeductions)
         ? e.otherDeductions.reduce((sum, i) => sum + Number(i.amount || 0), 0)
         : 0,
     }));
+
 
   const formatTeams = (raw) =>
     raw.map((t) => ({

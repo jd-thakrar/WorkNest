@@ -67,20 +67,22 @@ const Dashboard = () => {
 
      const currentMonthStr = new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
      
-     // Calculate accurate projected total from ALL employees based on their salary components
+     // Calculate projected total from ALL employees based on corrected global context mapping
      const projectedTotalNet = employees.reduce((acc, emp) => {
-        const salary = (emp.salary || (emp.ctc / 12)) || 0; // Fallback to CTC/12 if salary not set
-        // If we want to be very precise, we sum common fields if they exist
-        const calculatedSalary = (emp.basic || 0) + (emp.hra || 0) + (emp.travel || 0) + 
-                                (emp.otherAllowances || []).reduce((s, a) => s + (a.amount || 0), 0);
+        // We sum components directly for maximum precision in the projected "Total"
+        const projectedNet = (emp.basic || 0) + (emp.hra || 0) + (emp.travel || 0) + (emp.daily || 0) + 
+                             (emp.otherAllowances || []).reduce((s, a) => s + (Number(a.amount) || 0), 0);
         
-        return acc + (calculatedSalary > 0 ? calculatedSalary : Math.round(salary));
+        // If components are 0 (draft employee), fallback to CTC/12
+        const fallback = Math.round((emp.ctc || 0) / 12);
+        
+        return acc + (projectedNet > 0 ? projectedNet : fallback);
      }, 0);
      
      const disbursedNet = financials.filter(f => f.month === currentMonthStr && f.status === 'Paid').reduce((acc, f) => acc + (f.net || 0), 0);
      const processedPendingNet = financials.filter(f => f.month === currentMonthStr && f.status !== 'Paid').reduce((acc, f) => acc + (f.net || 0), 0);
      
-     // Subtract disbursed and pending from the expected total to see what's left in "Draft"
+     // Dynamics: Total represents the currently EXPECTED amount based on employee list
      const totalNet = Math.max(projectedTotalNet, disbursedNet + processedPendingNet);
      const draftNet = Math.max(0, totalNet - disbursedNet - processedPendingNet);
 
@@ -95,6 +97,7 @@ const Dashboard = () => {
            draft: totalNet > 0 ? (draftNet / totalNet) * 100 : 0 
         }
      };
+
 
 
      const counts = {};
@@ -249,27 +252,25 @@ const Dashboard = () => {
             subtitle="Hover or Click date/dots for precision telemetry"
             className="lg:col-span-8"
           >
-            <div className="relative pt-6">
-              {/* Fixed Y Axis Highlight Layer (Outside Scroll) */}
-              <div className="absolute inset-y-0 left-0 right-0 flex flex-col justify-between pt-10 pb-16 text-[9px] font-bold text-gray-300 pointer-events-none tracking-widest leading-none z-10 pr-4">
+            <div className="h-[320px] w-full relative pt-6 pb-2">
+              {/* Axis Layer */}
+              <div className="absolute inset-y-0 left-0 right-0 flex flex-col justify-between pt-10 pb-12 text-[9px] font-bold text-gray-300 pointer-events-none tracking-widest leading-none pr-4">
                 {[10, 8, 6, 4, 2, 0].map((v) => (
                   <div key={v} className="flex items-center gap-2">
-                    <span className="w-8 pl-2">{v}</span>
+                    <span className="w-8 pl-1">{v}</span>
                     <div className="flex-1 h-px bg-gray-100 opacity-20" />
                   </div>
                 ))}
               </div>
 
-              <div className="overflow-x-auto no-scrollbar">
-                <div className="h-[360px] min-w-[700px] w-full relative">
-                  <div className="ml-10 h-full relative pt-10 pb-16">
-                    {/* SVG Line Chart with Accurate Coordinates */}
-                    <svg
-                      className="w-full h-full overflow-visible"
-
+              <div className="ml-10 h-full relative pt-10 pb-12">
+                {/* SVG Line Chart */}
+                <svg
+                  className="w-full h-full overflow-visible"
                   preserveAspectRatio="none"
                   viewBox="0 0 1000 300"
                 >
+
                   {/* Line Path */}
                   <path
                     d={DASHBOARD_DATA.lineChart.reduce(
@@ -376,25 +377,22 @@ const Dashboard = () => {
                   })}
                 </svg>
 
-                {/* X Axis Labels with Linkage */}
-                <div className="absolute -bottom-8 w-full flex justify-between px-2 text-[9px] font-bold uppercase tracking-widest leading-none">
-                  {DASHBOARD_DATA.lineChart.map((p, i) => (
-                    <span
-                      key={i}
-                      onMouseEnter={() => setActivePoint(i)}
-                      onMouseLeave={() => setActivePoint(null)}
-                      onClick={() => setActivePoint(i)}
-                      className={`cursor-pointer pb-4 transition-all duration-300 ${activePoint === i ? "text-teal-600 scale-125" : "text-gray-300 hover:text-teal-400"}`}
-                    >
-                      {p.day}
-                    </span>
-                  ))}
-                </div>
+                  {/* X Axis Labels */}
+                  <div className="absolute -bottom-10 w-full flex justify-between px-2 text-[9px] font-bold uppercase tracking-widest leading-none">
+                    {DASHBOARD_DATA.lineChart.map((p, i) => (
+                      <span
+                        key={i}
+                        className="text-gray-300"
+                      >
+                        {p.day}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        </ChartContainer>
+          </ChartContainer>
+
 
 
 
@@ -512,8 +510,8 @@ const Dashboard = () => {
           title="Attendance Pulse"
           subtitle="Labor Presence for 10 Personnel (Daily Flow)"
         >
-          <div className="overflow-x-auto no-scrollbar pt-12">
-            <div className="h-[380px] min-w-[700px] flex items-end justify-between px-4 pb-16 gap-3 md:gap-5">
+          <div className="h-[300px] w-full flex items-end justify-between px-4 pt-10 pb-10 gap-2">
+
 
 
               {DASHBOARD_DATA.attendance.map((row, i) => (
