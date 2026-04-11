@@ -54,7 +54,6 @@ WorkNest is built on a distributed **MERN Architecture** (MongoDB, Express, Reac
 | Environment | Status | URL |
 | :--- | :--- | :--- |
 | **Production** | 🟢 Live | [https://worknest-hrms.vercel.app/](https://worknest-hrms-jeet-thakrars-projects.vercel.app/) |
-| **Staging** | 🟡 Internal | [https://worknest-staging.vercel.app/](https://worknest-hrms-jeet-thakrars-projects.vercel.app/) |
 
 ---
 
