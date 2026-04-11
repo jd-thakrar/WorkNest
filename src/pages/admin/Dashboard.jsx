@@ -390,8 +390,8 @@ const Dashboard = () => {
                   </div>
                 </div>
               </div>
-            </div>
-          </ChartContainer>
+            </ChartContainer>
+
 
 
 
@@ -563,9 +563,8 @@ const Dashboard = () => {
                 </div>
               ))}
             </div>
-          </div>
+          </ChartContainer>
 
-        </ChartContainer>
 
         {/* Row 4: Payroll & Performers */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
