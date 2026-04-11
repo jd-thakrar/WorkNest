@@ -160,12 +160,15 @@ export const markPaid = async (req, res) => {
         await req.save();
       }
 
-      await Notification.create({
-        type: 'success',
-        title: 'Salary Disbursed',
-        desc: `Salary payment for ${record.empId.firstName} ${record.empId.lastName} (Cycle: ${record.month}) has been successfully processed.`,
-        userId: req.user._id
-      });
+      if (record.empId && record.empId.user) {
+         await Notification.create({
+            type: 'success',
+            title: 'Salary Disbursed',
+            desc: `Your salary for ${record.month} has been successfully credited. View your payslip in the Finance section.`,
+            userId: record.empId.user
+         });
+      }
+
     }
 
     res.json(record);

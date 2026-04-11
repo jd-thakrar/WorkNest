@@ -1,5 +1,6 @@
 import Task from '../models/Task.js';
 import Notification from '../models/Notification.js';
+import Employee from '../models/Employee.js';
 
 export const getTasks = async (req, res) => {
   try {
@@ -20,13 +21,20 @@ export const addTask = async (req, res) => {
       addedBy: req.user._id,
     });
     
-    // Create Notification
-    await Notification.create({
-      type: 'info',
-      title: 'New Strategy Task',
-      desc: `Task "${task.name}" has been drafted and assigned to team members.`,
-      userId: req.user._id
-    });
+    // Notify all assigned members
+    if (task.members && task.members.length > 0) {
+       const employees = await Employee.find({ _id: { $in: task.members } });
+       for (const emp of employees) {
+          if (emp.user) {
+             await Notification.create({
+                type: 'info',
+                title: 'New Strategy Assigned',
+                desc: `You have been assigned to task: "${task.name}".`,
+                userId: emp.user
+             });
+          }
+       }
+    }
 
     const populated = await Task.findById(task._id).populate('teamId').populate('members', 'firstName lastName');
     res.status(201).json(populated);
@@ -42,11 +50,27 @@ export const updateTask = async (req, res) => {
       req.body,
       { new: true }
     ).populate('teamId').populate('members', 'firstName lastName');
+
+    // Notify members of the update
+    if (task.members && task.members.length > 0) {
+       for (const emp of task.members) {
+          if (emp.user) {
+             await Notification.create({
+                type: 'warning',
+                title: 'Task Execution Update',
+                desc: `Strategic objectives for "${task.name}" have been revised.`,
+                userId: emp.user
+             });
+          }
+       }
+    }
+
     res.json(task);
   } catch (error) {
     res.status(400).json({ message: error.message });
   }
 };
+
 
 export const deleteTask = async (req, res) => {
   try {

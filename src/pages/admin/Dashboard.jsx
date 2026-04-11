@@ -234,7 +234,9 @@ const Dashboard = () => {
             subtitle="Hover or Click date/dots for precision telemetry"
             className="lg:col-span-8"
           >
-            <div className="h-[320px] w-full relative">
+            <div className="overflow-x-auto overflow-y-hidden no-scrollbar pt-6">
+               <div className="h-[320px] min-w-[600px] w-full relative">
+
               {/* Y Axis Highlight Layer */}
               <div className="absolute inset-y-0 left-0 flex flex-col justify-between py-4 text-[9px] font-bold text-gray-300 pointer-events-none tracking-widest leading-none z-10 w-full">
                 {[10, 8, 6, 4, 2, 0].map((v) => (
@@ -374,7 +376,9 @@ const Dashboard = () => {
                 </div>
               </div>
             </div>
-          </ChartContainer>
+          </div>
+        </ChartContainer>
+
 
           {/* Section 3: Workload Balance (TOTAL TASK STATUS DATA) */}
           <ChartContainer
@@ -487,7 +491,7 @@ const Dashboard = () => {
           title="Attendance Pulse"
           subtitle="Labor Presence for 10 Personnel (Daily Flow)"
         >
-          <div className="overflow-x-auto no-scrollbar pt-10">
+          <div className="overflow-x-auto overflow-y-hidden no-scrollbar pt-10">
             <div className="h-[300px] min-w-[600px] flex items-end justify-between px-4 pb-10 gap-2 md:gap-4">
               {DASHBOARD_DATA.attendance.map((row, i) => (
                 <div

@@ -136,15 +136,12 @@ export const createLeaveRequest = async (req, res) => {
       company: req.user.company,
     });
 
-    // Create Notification
-    const emp = await Employee.findById(req.body.empId);
-    await Notification.create({
-      type: 'warning',
-      title: 'Leave Requisition',
-      desc: `A new time-off request has been submitted by ${emp?.firstName} ${emp?.lastName}.`,
-      userId: req.user._id
-    });
-
+    // Notify the ADMIN (since employee is applying)
+    // Find an admin for this company or just notify the HR group
+    // For now, let's notify the current user (if employee) and also the admin could be hardcoded?
+    // Actually, usually we notify the recipient. 
+    // If employee applies, notify Admin. If Admin applies for employee, notify Employee.
+    
     res.status(201).json(leave);
   } catch (error) {
     res.status(400).json({ message: error.message });
@@ -158,9 +155,21 @@ export const updateLeaveRequest = async (req, res) => {
       { _id: req.params.id, company: req.user.company },
       { status, type, from, to, days, reason },
       { new: true }
-    );
+    ).populate('empId');
+
+    // Notify the employee about the result
+    if (leave.empId && leave.empId.user) {
+       await Notification.create({
+          type: status === 'Approved' ? 'success' : 'alert',
+          title: `Time-Off ${status}`,
+          desc: `Your leave request from ${leave.from} has been ${status.toLowerCase()}.`,
+          userId: leave.empId.user
+       });
+    }
+
     res.json(leave);
   } catch (error) {
     res.status(400).json({ message: error.message });
   }
 };
+

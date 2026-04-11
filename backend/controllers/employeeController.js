@@ -102,6 +102,15 @@ export const addEmployee = async (req, res) => {
       userId: req.user._id
     });
 
+    // 4. Welcome Notification for Employee
+    await Notification.create({
+       type: 'info',
+       title: 'Welcome to WorkNest',
+       desc: 'Your professional profile has been activated. Explore your dashboard to manage attendance, tasks, and finance.',
+       userId: newUser._id
+    });
+
+
     res.status(201).json(employee);
   } catch (error) {
     res.status(400).json({ message: error.message });
